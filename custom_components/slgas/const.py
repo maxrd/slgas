@@ -15,7 +15,7 @@ CONF_PROMPT = "prompt"
 
 # Defaults
 DEFAULT_HISTORY_DAYS = 90
-DEFAULT_PROMPT = "這是一張瓦斯表的照片,左邊為4個黑色數字整數度數,只回傳這4位 ,有一個m2這個忽略,右邊為3個紅色數字忽略，不要有其他文字。"
+DEFAULT_PROMPT = "這是一張瓦斯表的照片,左邊為4個黑底白色數字整數度數字框,只回傳這4位 ,有一個m2這個忽略,右邊為3個黑底紅色數字框忽略，不要有其他文字。"
 
 # Services
 SERVICE_EXECUTE_REPORT = "execute_report"
