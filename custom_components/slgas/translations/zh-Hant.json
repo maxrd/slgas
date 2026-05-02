@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "設定欣林瓦斯自動回報",
+        "title": "設定欣隆瓦斯自動回報",
         "data": {
           "cus_no": "用戶編號 (CusNo)",
           "cus_name": "用戶名稱 (CusName)",
