@@ -36,8 +36,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         t = time.fromisoformat(schedule_str)
         
         async def async_scheduled_run(now):
-            _LOGGER.info("執行定時瓦斯回報作業")
-            await report_service.execute_full_workflow()
+            _LOGGER.info("執行定時瓦斯辨識作業 (不自動上報)")
+            await report_service.execute_full_workflow(submit=False)
 
         # Track daily time change
         entry.async_on_unload(
@@ -55,7 +55,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Register service
     async def handle_execute_report(call: ServiceCall):
-        await report_service.execute_full_workflow()
+        submit = call.data.get("submit", True)
+        await report_service.execute_full_workflow(submit=submit)
 
     hass.services.async_register(DOMAIN, SERVICE_EXECUTE_REPORT, handle_execute_report)
 

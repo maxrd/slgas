@@ -15,18 +15,35 @@ async def async_setup_entry(
 ) -> None:
     """Set up the slgas buttons."""
     report_service = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([SlgasManualReportButton(report_service, entry)], True)
+    async_add_entities([
+        SlgasManualReportButton(report_service, entry),
+        SlgasOcrOnlyButton(report_service, entry)
+    ], True)
 
 class SlgasManualReportButton(ButtonEntity):
-    """Button to manually trigger the gas report."""
+    """Button to manually trigger the full gas report (OCR + Submit)."""
 
     def __init__(self, report_service, entry):
         self._report_service = report_service
         self._entry = entry
-        self._attr_name = "立即回報瓦斯度數"
+        self._attr_name = "確認並立即上報瓦斯度數"
         self._attr_unique_id = f"{entry.entry_id}_manual_report"
         self._attr_icon = "mdi:send-check"
 
     async def async_press(self) -> None:
         """Handle the button press."""
-        await self._report_service.execute_full_workflow()
+        await self._report_service.execute_full_workflow(submit=True)
+
+class SlgasOcrOnlyButton(ButtonEntity):
+    """Button to manually trigger only the OCR analysis."""
+
+    def __init__(self, report_service, entry):
+        self._report_service = report_service
+        self._entry = entry
+        self._attr_name = "手動分析度數 (不提交)"
+        self._attr_unique_id = f"{entry.entry_id}_ocr_only"
+        self._attr_icon = "mdi:camera-retake"
+
+    async def async_press(self) -> None:
+        """Handle the button press."""
+        await self._report_service.execute_full_workflow(submit=False)

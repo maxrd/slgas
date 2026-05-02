@@ -33,8 +33,8 @@ class SlgasReportService:
         self.history = []
         self.last_status = "尚未執行"
 
-    async def execute_full_workflow(self):
-        """Execute the entire workflow: Snapshot -> OCR -> InputText -> HTTP POST."""
+    async def execute_full_workflow(self, submit: bool = True):
+        """Execute the entire workflow: Snapshot -> OCR -> InputText -> (Optional) HTTP POST."""
         try:
             # 1. Take Snapshot
             camera_id = self.entry.data.get(CONF_CAMERA_ENTITY)
@@ -65,13 +65,16 @@ class SlgasReportService:
             )
             _LOGGER.info(f"已更新 {text_id} 為 {ocr_degree}")
 
-            # 4. Submit to slgas.com.tw
-            success = await self._submit_to_slgas(ocr_degree)
-            
-            if success:
-                self.last_status = "成功"
+            # 4. Submit to slgas.com.tw (Optional)
+            if submit:
+                success = await self._submit_to_slgas(ocr_degree)
+                if success:
+                    self.last_status = "成功"
+                else:
+                    self.last_status = "回報失敗"
             else:
-                self.last_status = "回報失敗"
+                self.last_status = "辨識完成 (待確認)"
+                _LOGGER.info("排程執行：已完成 OCR 辨識，跳過自動上報。")
                 
             self._add_to_history(ocr_degree, self.last_status)
 
