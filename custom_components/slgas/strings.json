@@ -4,12 +4,12 @@
       "user": {
         "title": "Configure SLGAS Auto Report",
         "data": {
-          "cus_no": "Customer Number (CusNo)",
-          "cus_name": "Customer Name (CusName)",
-          "cus_phone": "Phone Number (Cuscallno)",
-          "camera_entity": "Select Camera",
-          "text_entity": "Select input_text for degree",
-          "schedule_time": "Daily Schedule Time"
+          "cus_no": "用戶編號",
+          "cus_name": "用戶名稱",
+          "cus_phone": "用戶手機",
+          "camera_entity": "選擇攝影機",
+          "text_entity": "選擇存放度數的text",
+          "schedule_time": "每日排程時間"
         }
       }
     },
