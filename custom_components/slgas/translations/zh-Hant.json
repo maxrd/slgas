@@ -1,0 +1,20 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "設定欣林瓦斯自動回報",
+        "data": {
+          "cus_no": "用戶編號 (CusNo)",
+          "cus_name": "用戶名稱 (CusName)",
+          "cus_phone": "用戶手機 (Cuscallno)",
+          "camera_entity": "選擇瓦斯表攝影機",
+          "text_entity": "選擇存放度數的 input_text",
+          "schedule_time": "每日自動執行時間"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "此用戶編號已設定過。"
+    }
+  }
+}

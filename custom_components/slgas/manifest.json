@@ -1,0 +1,11 @@
+{
+  "domain": "slgas",
+  "name": "欣林瓦斯自動回報",
+  "codeowners": ["@maxrd"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/maxrd/slgas",
+  "iot_class": "cloud_polling",
+  "requirements": ["beautifulsoup4>=4.11.1"],
+  "version": "1.0.0"
+}
