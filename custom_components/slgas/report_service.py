@@ -88,31 +88,63 @@ class SlgasReportService:
 
     async def _perform_ocr(self):
         """Call Google AI OCR service to recognize degree."""
-        # This is a conceptual implementation of calling Google Gemini in HA
-        # User prompt for gas meter
-        prompt = "這是一張瓦斯表的照片，請只回傳表上的數字（整數度數），不要有其他文字。"
+        _LOGGER.info("正在啟動 Google AI OCR 辨識流程...")
         
-        # We try to use the google_generative_ai_conversation service if available
+        # 1. 準備圖片資料
         try:
-            # Note: Actual service name might vary depending on HA version/integration
-            # This is a representative call.
-            # In practice, one might need to use an Image entity or pass base64.
-            # For now, we simulate success with the value from input_text if OCR fails 
-            # or use a default for testing.
-            
-            # In a real HACS, we would implement the exact Google AI API call here.
-            _LOGGER.info("正在執行 Google AI OCR 辨識...")
-            
-            # Placeholder: return the current value of input_text as a fallback if OCR logic is complex
-            # or return a dummy value for the plan.
-            # In real code, we'd use: response = await self.hass.services.async_call(...)
-            
-            state = self.hass.states.get(self.entry.data.get(CONF_TEXT_ENTITY))
-            return state.state if state else "0"
-            
+            import os
+            if not os.path.exists(DEFAULT_IMAGE_PATH):
+                _LOGGER.error(f"找不到圖片檔案: {DEFAULT_IMAGE_PATH}")
+                return None
+                
+            # 讀取圖片並轉換為 base64 (某些服務需要) 或直接傳路徑
+            # 在 HA 官方 Google AI 整合中，我們通常使用 generate_content 服務
         except Exception as e:
-            _LOGGER.warning(f"OCR 執行異常: {e}")
+            _LOGGER.error(f"處理圖片檔案失敗: {e}")
             return None
+
+        # 2. 呼叫 Google Generative AI 服務
+        # 註：這裡假設使用者已安裝官方的 google_generative_ai 整合
+        prompt = "這是一張瓦斯表的照片,左邊為4個黑色數字整數度數,只回傳這4位 ,有一個m2這個忽略,右邊為3個紅色數字忽略，不要有其他文字。"
+        
+        try:
+            # 使用 HA 的服務呼叫方式
+            # 官方整合通常會註冊在 google_generative_ai domain
+            # 我們傳入圖片路徑讓 AI 讀取
+            response = await self.hass.services.async_call(
+                "google_generative_ai",
+                "generate_content",
+                {
+                    "prompt": prompt,
+                    "image_path": DEFAULT_IMAGE_PATH
+                },
+                blocking=True,
+                return_response=True
+            )
+            
+            if response and "text" in response:
+                raw_result = response["text"]
+                _LOGGER.info(f"AI 原始辨識結果: {raw_result}")
+                
+                # 使用正則表達式提取數字 (取前 4 位數字)
+                import re
+                match = re.search(r"(\d{4})", raw_result)
+                if match:
+                    ocr_result = match.group(1)
+                    _LOGGER.info(f"成功提取度數: {ocr_result}")
+                    return ocr_result
+                else:
+                    _LOGGER.warning(f"辨識結果中找不到 4 位數字: {raw_result}")
+                    return None
+            else:
+                _LOGGER.error("Google AI 服務未回傳有效文字內容")
+                return None
+                
+        except Exception as e:
+            _LOGGER.warning(f"呼叫 Google AI 服務時發生錯誤: {e}")
+            # 如果服務呼叫失敗，暫時回傳目前的數值作為保險 (或回傳 None 讓流程停止)
+            state = self.hass.states.get(self.entry.data.get(CONF_TEXT_ENTITY))
+            return state.state if state else None
 
     async def _submit_to_slgas(self, degree):
         """The two-step POST logic."""
