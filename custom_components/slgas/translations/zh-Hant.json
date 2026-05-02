@@ -9,7 +9,9 @@
           "cus_phone": "用戶手機 (Cuscallno)",
           "camera_entity": "選擇瓦斯表攝影機",
           "text_entity": "選擇存放度數的 input_text",
-          "schedule_time": "每日自動執行時間"
+          "schedule_time": "每日自動辦視執行時間",
+          "notify_script": "通知腳本 (可留空)",
+          "history_days": "歷史紀錄保留天數"
         }
       }
     },

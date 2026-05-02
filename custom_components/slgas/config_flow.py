@@ -14,6 +14,9 @@ from .const import (
     CONF_CAMERA_ENTITY,
     CONF_TEXT_ENTITY,
     CONF_SCHEDULE_TIME,
+    CONF_NOTIFY_SCRIPT,
+    CONF_HISTORY_DAYS,
+    DEFAULT_HISTORY_DAYS,
 )
 
 class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -46,6 +49,12 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 selector.EntitySelectorConfig(domain="input_text")
             ),
             vol.Required(CONF_SCHEDULE_TIME, default="08:00:00"): selector.TimeSelector(),
+            vol.Optional(CONF_NOTIFY_SCRIPT): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain="script")
+            ),
+            vol.Optional(CONF_HISTORY_DAYS, default=DEFAULT_HISTORY_DAYS): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=1, max=365, step=1, mode="box")
+            ),
         })
 
         return self.async_show_form(

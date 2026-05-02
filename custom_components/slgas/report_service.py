@@ -16,6 +16,9 @@ from .const import (
     CONF_CUS_PHONE,
     CONF_CAMERA_ENTITY,
     CONF_TEXT_ENTITY,
+    CONF_NOTIFY_SCRIPT,
+    CONF_HISTORY_DAYS,
+    DEFAULT_HISTORY_DAYS,
     DEFAULT_IMAGE_PATH,
 )
 
@@ -71,6 +74,9 @@ class SlgasReportService:
                 self.last_status = "回報失敗"
                 
             self._add_to_history(ocr_degree, self.last_status)
+
+            # 5. Send notification via script (if configured)
+            await self._send_notification(ocr_degree)
 
         except Exception as e:
             _LOGGER.error(f"瓦斯回報流程出錯: {e}")
@@ -164,13 +170,50 @@ class SlgasReportService:
         tag = soup.find("input", {"name": name})
         return tag.get("value", "") if tag else ""
 
+    async def _send_notification(self, degree):
+        """Call the user-configured HA script for notification."""
+        script_entity = self.entry.data.get(CONF_NOTIFY_SCRIPT)
+        if not script_entity:
+            _LOGGER.debug("未設定通知腳本，略過通知")
+            return
+
+        try:
+            # Read current value from input_text entity
+            text_entity = self.entry.data.get(CONF_TEXT_ENTITY)
+            state = self.hass.states.get(text_entity)
+            current_degree = state.state if state else degree
+
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            message = f"\n{now_str}  目前瓦期使用度數為:{current_degree}"
+
+            # Call the script with message and image file
+            await self.hass.services.async_call(
+                "script",
+                "turn_on",
+                {
+                    "entity_id": script_entity,
+                    "variables": {
+                        "message": message,
+                        "data": {
+                            "file": DEFAULT_IMAGE_PATH,
+                        },
+                    },
+                },
+                blocking=True,
+            )
+            _LOGGER.info(f"已呼叫通知腳本 {script_entity}")
+
+        except Exception as e:
+            _LOGGER.error(f"呼叫通知腳本失敗: {e}")
+
     def _add_to_history(self, degree, status):
-        """Add record to history and keep last 60 items."""
+        """Add record to history and keep within configured limit."""
+        max_records = int(self.entry.data.get(CONF_HISTORY_DAYS, DEFAULT_HISTORY_DAYS))
         record = {
             "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "degree": degree,
             "status": status
         }
         self.history.insert(0, record)
-        if len(self.history) > 60:
+        if len(self.history) > max_records:
             self.history.pop()
