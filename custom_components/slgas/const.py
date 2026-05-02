@@ -11,9 +11,11 @@ CONF_TEXT_ENTITY = "text_entity"
 CONF_SCHEDULE_TIME = "schedule_time"
 CONF_NOTIFY_SCRIPT = "notify_script"
 CONF_HISTORY_DAYS = "history_days"
+CONF_PROMPT = "prompt"
 
 # Defaults
 DEFAULT_HISTORY_DAYS = 90
+DEFAULT_PROMPT = "這是一張瓦斯表的照片,左邊為4個黑色數字整數度數,只回傳這4位 ,有一個m2這個忽略,右邊為3個紅色數字忽略，不要有其他文字。"
 
 # Services
 SERVICE_EXECUTE_REPORT = "execute_report"

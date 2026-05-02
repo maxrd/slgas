@@ -16,7 +16,9 @@ from .const import (
     CONF_SCHEDULE_TIME,
     CONF_NOTIFY_SCRIPT,
     CONF_HISTORY_DAYS,
+    CONF_PROMPT,
     DEFAULT_HISTORY_DAYS,
+    DEFAULT_PROMPT,
 )
 
 class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -54,6 +56,9 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ),
             vol.Optional(CONF_HISTORY_DAYS, default=DEFAULT_HISTORY_DAYS): selector.NumberSelector(
                 selector.NumberSelectorConfig(min=1, max=365, step=1, mode="box")
+            ),
+            vol.Optional(CONF_PROMPT, default=DEFAULT_PROMPT): selector.TextSelector(
+                selector.TextSelectorConfig(multiline=True)
             ),
         })
 

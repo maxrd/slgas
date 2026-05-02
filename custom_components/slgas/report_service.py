@@ -14,11 +14,11 @@ from .const import (
     CONF_CUS_NO,
     CONF_CUS_NAME,
     CONF_CUS_PHONE,
-    CONF_CAMERA_ENTITY,
-    CONF_TEXT_ENTITY,
     CONF_NOTIFY_SCRIPT,
     CONF_HISTORY_DAYS,
+    CONF_PROMPT,
     DEFAULT_HISTORY_DAYS,
+    DEFAULT_PROMPT,
     DEFAULT_IMAGE_PATH,
 )
 
@@ -105,7 +105,7 @@ class SlgasReportService:
 
         # 2. 呼叫 Google Generative AI 服務
         # 註：這裡假設使用者已安裝官方的 google_generative_ai 整合
-        prompt = "這是一張瓦斯表的照片,左邊為4個黑色數字整數度數,只回傳這4位 ,有一個m2這個忽略,右邊為3個紅色數字忽略，不要有其他文字。"
+        prompt = self.entry.data.get(CONF_PROMPT, DEFAULT_PROMPT)
         
         try:
             # 使用 HA 的服務呼叫方式

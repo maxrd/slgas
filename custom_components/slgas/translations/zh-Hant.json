@@ -11,7 +11,8 @@
           "text_entity": "選擇存放度數的 input_text",
           "schedule_time": "每日自動辦視執行時間",
           "notify_script": "通知腳本 (可留空)",
-          "history_days": "歷史紀錄保留天數"
+          "history_days": "歷史紀錄保留天數",
+          "prompt": "Google AI 辨識指令 (Prompt)"
         }
       }
     },

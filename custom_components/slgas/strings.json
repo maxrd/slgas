@@ -11,7 +11,8 @@
           "text_entity": "Select input_text for degree",
           "schedule_time": "Daily Schedule Time",
           "notify_script": "Notification Script (optional)",
-          "history_days": "History Retention (days)"
+          "history_days": "History Retention (days)",
+          "prompt": "Google AI OCR Prompt"
         }
       }
     },
