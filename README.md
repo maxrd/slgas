@@ -2,7 +2,7 @@
 [![GitHub release](https://img.shields.io/github/release/maxrd/slgas.svg)](https://github.com/maxrd/slgas/releases/)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/maxrd/slgas/graphs/commit-activity)
 
-# 欣林瓦斯自動回報 (SLGAS Auto Report)
+# 基隆欣隆瓦斯自動回報 (SLGAS Auto Report)
 ### Home Assistant 自定義組件 - 用於自動回報欣林天然瓦斯度數
 
 本插件專為欣林天然瓦斯用戶設計，能夠自動化每日的瓦斯度數申報流程。透過整合攝影機拍照與 Google AI OCR 技術，實現「免人工、自動報表」的智能體驗。
@@ -27,6 +27,8 @@
 ## 安裝指南 (Installation)
 
 ### 方法一：使用 HACS 安裝 (推薦)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=maxrd&repository=slgas&category=integration)
+
 1.  打開 **HACS** -> **Integrations**。
 2.  點擊右上角三個點，選擇 **Custom repositories**。
 3.  輸入儲存庫網址 `https://github.com/maxrd/slgas` 並選擇類別為 **Integration**。
@@ -199,5 +201,6 @@ script:
 
 ---
 **如果您覺得這個專案有幫助，請給它一個 ⭐ Star！**
-#   s l g a s  
+#   s l g a s 
+ 
  
