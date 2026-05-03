@@ -83,3 +83,20 @@ git add releas
 git add .
 git commit -m "Update to version 2026.5.1"
 git push
+
+第二步：在 GitHub 網頁建立發布 (Release)
+
+進階方法：使用指令直接建立 Tag（如果您熟悉指令）
+如果您想直接用指令建立標籤並推送，可以執行：
+開啟您的 GitHub 儲存庫頁面：https://github.com/maxrd/slgas
+在右側欄位找到 Releases，點擊 Create a new release (或是點擊 "Draft a new release")。
+點擊 Choose a tag 按鈕，輸入 v2026.5.1 並點擊 Create new tag。
+Release title (標題) 也可以寫 v2026.5.1。
+在說明欄位簡單寫一下更新內容（例如：新增通知功能、調整歷史保留天數）。
+捲動到最下方，點擊 Publish release (發布)。
+
+bash
+# 建立標籤
+git tag -a v2026.5.1 -m "Release v2026.5.1"
+# 將標籤推送到 GitHub
+git push origin v2026.5.1
