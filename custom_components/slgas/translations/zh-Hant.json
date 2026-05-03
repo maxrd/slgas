@@ -19,5 +19,23 @@
     "abort": {
       "already_configured": "此用戶編號已設定過。"
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "修改設定 - 欣隆瓦斯自動回報",
+        "data": {
+          "cus_no": "用戶編號 (CusNo)",
+          "cus_name": "用戶名稱 (CusName)",
+          "cus_phone": "用戶手機 (Cuscallno)",
+          "camera_entity": "選擇瓦斯表攝影機",
+          "text_entity": "選擇存放度數的 input_text",
+          "schedule_time": "每日自動辦視執行時間",
+          "notify_script": "通知腳本 (可留空)",
+          "history_days": "歷史紀錄保留天數",
+          "prompt": "Google AI 辨識指令 (Prompt)"
+        }
+      }
+    }
   }
 }

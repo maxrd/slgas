@@ -19,5 +19,23 @@
     "abort": {
       "already_configured": "This customer number is already configured."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configure SLGAS Auto Report",
+        "data": {
+          "cus_no": "Customer Number (CusNo)",
+          "cus_name": "Customer Name (CusName)",
+          "cus_phone": "Phone Number (Cuscallno)",
+          "camera_entity": "Select Camera",
+          "text_entity": "Select input_text for degree",
+          "schedule_time": "Daily Schedule Time",
+          "notify_script": "Notification Script (optional)",
+          "history_days": "History Retention (days)",
+          "prompt": "Google AI OCR Prompt"
+        }
+      }
+    }
   }
 }
