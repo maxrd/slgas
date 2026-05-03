@@ -136,10 +136,10 @@ class SlgasReportService:
         _LOGGER.info(f"從 {degree_entity_id} 讀取到度數: {value}")
 
         # 提取數字部分 (例如 sensor 可能帶有單位)
-        match = re.search(r"(\d+)", value)
-        if match:
-            # 提取數字並移除前導 0
-            return match.group(1).lstrip('0') or "0"
+        matches = re.findall(r"(\d+)", value)
+        if matches:
+            # 取得最長的數字序列並轉為整數（移除所有前導 0）
+            return str(int(max(matches, key=len)))
 
         # 如果整個值就是數字
         cleaned = value.strip()
@@ -189,11 +189,12 @@ class SlgasReportService:
                 raw_result = response["text"]
                 _LOGGER.info(f"AI 原始辨識結果: {raw_result}")
                 
-                # 使用正則表達式提取數字，並去除前導 0 (支援變動長度)
+                # 尋找所有數字序列，選取最長的，並轉為整數以移除前導 0
                 import re
-                match = re.search(r"(\d+)", raw_result)
-                if match:
-                    ocr_result = match.group(1).lstrip('0') or "0"
+                matches = re.findall(r"(\d+)", raw_result)
+                if matches:
+                    # 取得最長序列 (避免雜訊) 並轉為整數 (移除 0001 -> 1)
+                    ocr_result = str(int(max(matches, key=len)))
                     _LOGGER.info(f"成功提取度數: {ocr_result} (原始結果: {raw_result})")
                     return ocr_result
                 else:
