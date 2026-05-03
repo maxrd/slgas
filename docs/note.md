@@ -77,3 +77,9 @@ https://www.slgas.com.tw/Report_SQL.asp 這是第一道
 </html> 
 
 我能在成功後,計錄 日期,度數,在哪裏方便hacs 整合查看
+
+git add releas
+
+git add .
+git commit -m "Update to version 2026.5.1"
+git push
