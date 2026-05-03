@@ -257,14 +257,14 @@ class SlgasReportService:
                 break
         
         if updated_index != -1:
-            # Update existing record and move to top
+            # Update existing record and move to top (length stays same)
             record = self.history.pop(updated_index)
             record["date"] = now_full_str
             record["degree"] = degree
             record["status"] = status
             self.history.insert(0, record)
         else:
-            # Add new record
+            # Add new record (length increases)
             record = {
                 "date": now_full_str,
                 "degree": degree,
@@ -272,6 +272,6 @@ class SlgasReportService:
             }
             self.history.insert(0, record)
             
-        # Limit history size
-        if len(self.history) > max_records:
-            self.history = self.history[:max_records]
+            # Remove the oldest record if we exceed the limit
+            if len(self.history) > max_records:
+                self.history.pop()
