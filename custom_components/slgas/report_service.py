@@ -244,11 +244,34 @@ class SlgasReportService:
     def _add_to_history(self, degree, status):
         """Add record to history and keep within configured limit."""
         max_records = int(self.entry.data.get(CONF_HISTORY_DAYS, DEFAULT_HISTORY_DAYS))
-        record = {
-            "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "degree": degree,
-            "status": status
-        }
-        self.history.insert(0, record)
+        
+        now = datetime.now()
+        today_str = now.strftime("%Y-%m-%d")
+        now_full_str = now.strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Check if we already have a record for today
+        updated_index = -1
+        for i, record in enumerate(self.history):
+            if record["date"].startswith(today_str):
+                updated_index = i
+                break
+        
+        if updated_index != -1:
+            # Update existing record and move to top
+            record = self.history.pop(updated_index)
+            record["date"] = now_full_str
+            record["degree"] = degree
+            record["status"] = status
+            self.history.insert(0, record)
+        else:
+            # Add new record
+            record = {
+                "date": now_full_str,
+                "degree": degree,
+                "status": status
+            }
+            self.history.insert(0, record)
+            
+        # Limit history size
         if len(self.history) > max_records:
-            self.history.pop()
+            self.history = self.history[:max_records]
