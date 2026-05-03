@@ -136,9 +136,10 @@ class SlgasReportService:
         _LOGGER.info(f"從 {degree_entity_id} 讀取到度數: {value}")
 
         # 提取數字部分 (例如 sensor 可能帶有單位)
-        match = re.search(r"(\d{4})", value)
+        match = re.search(r"(\d+)", value)
         if match:
-            return match.group(1)
+            # 提取數字並移除前導 0
+            return match.group(1).lstrip('0') or "0"
 
         # 如果整個值就是數字
         cleaned = value.strip()
@@ -188,12 +189,12 @@ class SlgasReportService:
                 raw_result = response["text"]
                 _LOGGER.info(f"AI 原始辨識結果: {raw_result}")
                 
-                # 使用正則表達式提取數字 (取前 4 位數字)
+                # 使用正則表達式提取數字，並去除前導 0 (支援變動長度)
                 import re
-                match = re.search(r"(\d{4})", raw_result)
+                match = re.search(r"(\d+)", raw_result)
                 if match:
-                    ocr_result = match.group(1)
-                    _LOGGER.info(f"成功提取度數: {ocr_result}")
+                    ocr_result = match.group(1).lstrip('0') or "0"
+                    _LOGGER.info(f"成功提取度數: {ocr_result} (原始結果: {raw_result})")
                     return ocr_result
                 else:
                     _LOGGER.warning(f"辨識結果中找不到 4 位數字: {raw_result}")

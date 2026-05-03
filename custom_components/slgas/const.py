@@ -21,7 +21,7 @@ OCR_SOURCE_EXTERNAL = "external"
 
 # Defaults
 DEFAULT_HISTORY_DAYS = 90
-DEFAULT_PROMPT = "這是一張瓦斯表的照片,左邊為4個黑底白色數字整數度數字框,只回傳這4位 ,有一個m2這個忽略,右邊為3個黑底紅色數字框忽略，不要有其他文字。"
+DEFAULT_PROMPT = "這是一張瓦斯表的照片,請提取左邊黑底白色數字框中的整數度數,忽略右邊紅色數字框(通常為3位),只回傳數字本身,不要有其他文字。"
 
 # Services
 SERVICE_EXECUTE_REPORT = "execute_report"
