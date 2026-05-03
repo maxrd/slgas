@@ -1,6 +1,7 @@
 """Report service for slgas."""
 import logging
 import re
+import asyncio
 import aiohttp
 from bs4 import BeautifulSoup
 from datetime import datetime
@@ -54,11 +55,14 @@ class SlgasReportService:
             )
             _LOGGER.info(f"已拍攝照片並存於 {DEFAULT_IMAGE_PATH}")
 
+            # 等待檔案完全寫入磁碟
+            await asyncio.sleep(2)
+
             # 2. AI OCR (Google Generative AI)
             self.last_status = "正在進行 AI OCR 辨識..."
             ocr_degree = await self._perform_ocr()
-            if not ocr_degree:
-                raise Exception("OCR 辨識失敗 (無法取得度數)")
+            if not ocr_degree or not ocr_degree.isdigit():
+                raise Exception(f"OCR 辨識失敗 (取得結果: {ocr_degree})")
 
             # 3. Update input_text
             text_id = self.config.get(CONF_TEXT_ENTITY)
@@ -118,11 +122,11 @@ class SlgasReportService:
             # 官方整合通常會註冊在 google_generative_ai domain
             # 我們傳入圖片路徑讓 AI 讀取
             response = await self.hass.services.async_call(
-                "google_generative_ai",
+                "google_generative_ai_conversation",
                 "generate_content",
                 {
                     "prompt": prompt,
-                    "image_path": DEFAULT_IMAGE_PATH
+                    "filenames": [DEFAULT_IMAGE_PATH],
                 },
                 blocking=True,
                 return_response=True
@@ -147,10 +151,8 @@ class SlgasReportService:
                 return None
                 
         except Exception as e:
-            _LOGGER.warning(f"呼叫 Google AI 服務時發生錯誤: {e}")
-            # 如果服務呼叫失敗，暫時回傳目前的數值作為保險 (或回傳 None 讓流程停止)
-            state = self.hass.states.get(self.config.get(CONF_TEXT_ENTITY))
-            return state.state if state else None
+            _LOGGER.error(f"呼叫 Google AI 服務時發生錯誤: {e}")
+            return None
 
     async def _submit_to_slgas(self, degree):
         """The two-step POST logic."""
