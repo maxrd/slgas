@@ -38,11 +38,11 @@ def _build_setup_schema(ocr_source: str, defaults: dict | None = None) -> vol.Sc
     schema = {}
 
     if ocr_source == OCR_SOURCE_GOOGLE_AI:
-        # Google AI 模式：攝影機必填，prompt 選填
+        # Google AI 模式：攝影機必填，prompt 必填
         schema[vol.Required(
             CONF_CAMERA_ENTITY, default=defaults.get(CONF_CAMERA_ENTITY, "")
         )] = selector.EntitySelector({"domain": "camera"})
-        schema[vol.Optional(
+        schema[vol.Required(
             CONF_PROMPT, default=defaults.get(CONF_PROMPT, DEFAULT_PROMPT)
         )] = selector.TextSelector({"multiline": True})
     else:
@@ -52,7 +52,7 @@ def _build_setup_schema(ocr_source: str, defaults: dict | None = None) -> vol.Sc
         )] = selector.EntitySelector({"domain": ["input_text", "sensor"]})
 
     # 共用欄位
-    schema[vol.Optional(
+    schema[vol.Required(
         CONF_TEXT_ENTITY, default=defaults.get(CONF_TEXT_ENTITY, "")
     )] = selector.EntitySelector({"domain": "input_text"})
     schema[vol.Required(

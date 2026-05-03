@@ -17,7 +17,7 @@
         "data": {
           "camera_entity": "Camera (for Google AI mode)",
           "degree_entity": "Degree Source Entity (input_text or sensor)",
-          "text_entity": "Degree Sync Entity (input_text, optional)",
+          "text_entity": "Degree Storage Entity (input_text)",
           "schedule_time": "Daily Schedule Time",
           "notify_script": "Notification Script (optional)",
           "history_days": "History Retention (days)",
@@ -51,7 +51,7 @@
         "data": {
           "camera_entity": "Camera (for Google AI mode)",
           "degree_entity": "Degree Source Entity (input_text or sensor)",
-          "text_entity": "Degree Sync Entity (input_text, optional)",
+          "text_entity": "Degree Storage Entity (input_text)",
           "schedule_time": "Daily Schedule Time",
           "notify_script": "Notification Script (optional)",
           "history_days": "History Retention (days)",

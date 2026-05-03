@@ -17,7 +17,7 @@
         "data": {
           "camera_entity": "攝影機 (Google AI 模式使用)",
           "degree_entity": "度數來源實體 (input_text 或 sensor)",
-          "text_entity": "度數同步實體 (input_text, 選填)",
+          "text_entity": "度數存放實體 (input_text)",
           "schedule_time": "每日自動辨識執行時間",
           "notify_script": "通知腳本 (可留空)",
           "history_days": "歷史紀錄保留天數",
@@ -51,7 +51,7 @@
         "data": {
           "camera_entity": "攝影機 (Google AI 模式使用)",
           "degree_entity": "度數來源實體 (input_text 或 sensor)",
-          "text_entity": "度數同步實體 (input_text, 選填)",
+          "text_entity": "度數存放實體 (input_text)",
           "schedule_time": "每日自動辨識執行時間",
           "notify_script": "通知腳本 (可留空)",
           "history_days": "歷史紀錄保留天數",
