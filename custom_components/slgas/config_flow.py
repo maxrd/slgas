@@ -22,48 +22,6 @@ from .const import (
     DEFAULT_PROMPT,
 )
 
-class SlgasOptionsFlowHandler(config_entries.OptionsFlow):
-    """Handle options flow for slgas."""
-
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """Initialize options flow."""
-        self.config_entry = config_entry
-
-    async def async_step_init(self, user_input=None):
-        """Manage the options."""
-        if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
-
-        # Use the official helper to add suggested values from current settings
-        # This handles merging data/options and prevents 500 errors from None values
-        current_config = {**self.config_entry.data, **self.config_entry.options}
-        
-        data_schema = vol.Schema({
-            vol.Required(CONF_CUS_NO): str,
-            vol.Required(CONF_CUS_NAME): str,
-            vol.Required(CONF_CUS_PHONE): str,
-            vol.Required(CONF_CAMERA_ENTITY): selector.EntitySelector(
-                {"domain": "camera"}
-            ),
-            vol.Required(CONF_TEXT_ENTITY): selector.EntitySelector(
-                {"domain": "input_text"}
-            ),
-            vol.Required(CONF_SCHEDULE_TIME): selector.TimeSelector(),
-            vol.Optional(CONF_NOTIFY_SCRIPT): selector.EntitySelector(
-                {"domain": "script"}
-            ),
-            vol.Optional(CONF_HISTORY_DAYS): selector.NumberSelector(
-                {"min": 1, "max": 365, "step": 1, "mode": "box"}
-            ),
-            vol.Optional(CONF_PROMPT): selector.TextSelector(
-                {"multiline": True}
-            ),
-        })
-
-        return self.async_show_form(
-            step_id="init",
-            data_schema=self.add_suggested_values_to_schema(data_schema, current_config),
-        )
 
 class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for slgas."""
@@ -72,9 +30,9 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> SlgasOptionsFlowHandler:
+    def async_get_options_flow(config_entry):
         """Get the options flow for this handler."""
-        return SlgasOptionsFlowHandler(config_entry)
+        return SlgasOptionsFlowHandler()
 
     async def async_step_user(self, user_input=None):
         """Handle the initial step."""
@@ -83,7 +41,7 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             await self.async_set_unique_id(user_input[CONF_CUS_NO])
             self._abort_if_unique_id_configured()
-            
+
             return self.async_create_entry(
                 title=f"瓦斯自動回報 ({user_input[CONF_CUS_NO]})",
                 data=user_input,
@@ -114,5 +72,71 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user",
             data_schema=data_schema,
+            errors=errors,
+        )
+
+
+class SlgasOptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle options flow for slgas."""
+
+    def __init__(self):
+        """Initialize options flow."""
+        pass
+
+    async def async_step_init(self, user_input=None):
+        """Redirect to user step."""
+        return await self.async_step_user(user_input)
+
+    async def async_step_user(self, user_input=None):
+        """Manage the options."""
+        errors = {}
+        config = {**self.config_entry.data, **self.config_entry.options}
+
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        schema = {
+            vol.Required(
+                CONF_CUS_NO, default=config.get(CONF_CUS_NO, "")
+            ): str,
+            vol.Required(
+                CONF_CUS_NAME, default=config.get(CONF_CUS_NAME, "")
+            ): str,
+            vol.Required(
+                CONF_CUS_PHONE, default=config.get(CONF_CUS_PHONE, "")
+            ): str,
+            vol.Required(
+                CONF_CAMERA_ENTITY, default=config.get(CONF_CAMERA_ENTITY, "")
+            ): selector.EntitySelector(
+                {"domain": "camera"}
+            ),
+            vol.Required(
+                CONF_TEXT_ENTITY, default=config.get(CONF_TEXT_ENTITY, "")
+            ): selector.EntitySelector(
+                {"domain": "input_text"}
+            ),
+            vol.Required(
+                CONF_SCHEDULE_TIME, default=config.get(CONF_SCHEDULE_TIME, "08:00:00")
+            ): selector.TimeSelector(),
+            vol.Optional(
+                CONF_NOTIFY_SCRIPT, default=config.get(CONF_NOTIFY_SCRIPT, "")
+            ): selector.EntitySelector(
+                {"domain": "script"}
+            ),
+            vol.Optional(
+                CONF_HISTORY_DAYS, default=config.get(CONF_HISTORY_DAYS, DEFAULT_HISTORY_DAYS)
+            ): selector.NumberSelector(
+                {"min": 1, "max": 365, "step": 1, "mode": "box"}
+            ),
+            vol.Optional(
+                CONF_PROMPT, default=config.get(CONF_PROMPT, DEFAULT_PROMPT)
+            ): selector.TextSelector(
+                {"multiline": True}
+            ),
+        }
+
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema(schema),
             errors=errors,
         )

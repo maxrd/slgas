@@ -22,7 +22,7 @@
   },
   "options": {
     "step": {
-      "init": {
+      "user": {
         "title": "Configure SLGAS Auto Report",
         "data": {
           "cus_no": "Customer Number (CusNo)",

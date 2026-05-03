@@ -33,8 +33,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Register platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    # Setup daily schedule
-    schedule_str = entry.data.get(CONF_SCHEDULE_TIME, "08:00:00")
+    # Setup daily schedule (read from merged options + data)
+    schedule_str = entry.options.get(CONF_SCHEDULE_TIME, entry.data.get(CONF_SCHEDULE_TIME, "08:00:00"))
     try:
         t = time.fromisoformat(schedule_str)
         
@@ -56,12 +56,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except ValueError:
         _LOGGER.error(f"無效的時間格式: {schedule_str}")
 
-    # Register service
-    async def handle_execute_report(call: ServiceCall):
-        submit = call.data.get("submit", True)
-        await report_service.execute_full_workflow(submit=submit)
+    # Register service (only once)
+    if not hass.services.has_service(DOMAIN, SERVICE_EXECUTE_REPORT):
+        async def handle_execute_report(call: ServiceCall):
+            submit = call.data.get("submit", True)
+            # Find the active report_service for the first entry
+            for entry_data in hass.data.get(DOMAIN, {}).values():
+                await entry_data.execute_full_workflow(submit=submit)
+                break
 
-    hass.services.async_register(DOMAIN, SERVICE_EXECUTE_REPORT, handle_execute_report)
+        hass.services.async_register(DOMAIN, SERVICE_EXECUTE_REPORT, handle_execute_report)
 
     return True
 
@@ -69,6 +73,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         hass.data[DOMAIN].pop(entry.entry_id)
+
+    # Unregister service if no more entries
+    if not hass.data.get(DOMAIN):
+        hass.services.async_remove(DOMAIN, SERVICE_EXECUTE_REPORT)
 
     return unload_ok
 

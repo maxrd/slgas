@@ -7,7 +7,6 @@ from datetime import datetime
 
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_NAME
 
 from .const import (
     DOMAIN,
@@ -164,9 +163,9 @@ class SlgasReportService:
         async with aiohttp.ClientSession(headers=headers) as session:
             # Step 1: POST for validation (ChkField=Check)
             payload1 = {
-                "CusNo": self.config.get(CONF_CUS_NO),
-                "CusName": self.config.get(CONF_CUS_NAME).encode("big5"),
-                "Cuscallno": self.config.get(CONF_CUS_PHONE),
+                "CusNo": self.config.get(CONF_CUS_NO, ""),
+                "CusName": (self.config.get(CONF_CUS_NAME) or "").encode("big5"),
+                "Cuscallno": self.config.get(CONF_CUS_PHONE, ""),
                 "ChkField": "Check",
                 "Send": "送出".encode("big5")
             }
@@ -226,7 +225,7 @@ class SlgasReportService:
             current_degree = state.state if state else degree
 
             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            message = f"\n{now_str}  目前瓦期使用度數為:{current_degree}"
+            message = f"\n{now_str}  目前瓦斯使用度數為:{current_degree}"
 
             # Call the script with message and image file
             await self.hass.services.async_call(
