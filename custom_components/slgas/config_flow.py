@@ -26,6 +26,11 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    @staticmethod
+    def async_get_options_flow(config_entry: config_entries.ConfigEntry):
+        """Get the options flow for this handler."""
+        return SlgasOptionsFlowHandler(config_entry)
+
     async def async_step_user(self, user_input=None):
         """Handle the initial step."""
         errors = {}
@@ -66,4 +71,44 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=data_schema,
             errors=errors,
+        )
+
+class SlgasOptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle options flow for slgas."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry):
+        """Initialize options flow."""
+        self.config_entry = config_entry
+
+    async def async_step_init(self, user_input=None):
+        """Manage the options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        # Merge data and options to show current values
+        options = {**self.config_entry.data, **self.config_entry.options}
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema({
+                vol.Required(CONF_CUS_NO, default=options.get(CONF_CUS_NO)): str,
+                vol.Required(CONF_CUS_NAME, default=options.get(CONF_CUS_NAME)): str,
+                vol.Required(CONF_CUS_PHONE, default=options.get(CONF_CUS_PHONE)): str,
+                vol.Required(CONF_CAMERA_ENTITY, default=options.get(CONF_CAMERA_ENTITY)): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain="camera")
+                ),
+                vol.Required(CONF_TEXT_ENTITY, default=options.get(CONF_TEXT_ENTITY)): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain="input_text")
+                ),
+                vol.Required(CONF_SCHEDULE_TIME, default=options.get(CONF_SCHEDULE_TIME, "08:00:00")): selector.TimeSelector(),
+                vol.Optional(CONF_NOTIFY_SCRIPT, default=options.get(CONF_NOTIFY_SCRIPT)): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain="script")
+                ),
+                vol.Optional(CONF_HISTORY_DAYS, default=options.get(CONF_HISTORY_DAYS, DEFAULT_HISTORY_DAYS)): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=1, max=365, step=1, mode="box")
+                ),
+                vol.Optional(CONF_PROMPT, default=options.get(CONF_PROMPT, DEFAULT_PROMPT)): selector.TextSelector(
+                    selector.TextSelectorConfig(multiline=True)
+                ),
+            })
         )

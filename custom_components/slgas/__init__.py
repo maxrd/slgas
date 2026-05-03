@@ -27,6 +27,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     report_service = SlgasReportService(hass, entry)
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = report_service
 
+    # Register update listener
+    entry.async_on_unload(entry.add_update_listener(async_reload_entry))
+
     # Register platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -68,3 +71,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN].pop(entry.entry_id)
 
     return unload_ok
+
+async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload config entry."""
+    await hass.config_entries.async_reload(entry.entry_id)

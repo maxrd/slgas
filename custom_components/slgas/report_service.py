@@ -14,6 +14,9 @@ from .const import (
     CONF_CUS_NO,
     CONF_CUS_NAME,
     CONF_CUS_PHONE,
+    CONF_CAMERA_ENTITY,
+    CONF_TEXT_ENTITY,
+    CONF_SCHEDULE_TIME,
     CONF_NOTIFY_SCRIPT,
     CONF_HISTORY_DAYS,
     CONF_PROMPT,
@@ -33,11 +36,16 @@ class SlgasReportService:
         self.history = []
         self.last_status = "尚未執行"
 
+    @property
+    def config(self):
+        """Return merged config (options + data)."""
+        return {**self.entry.data, **self.entry.options}
+
     async def execute_full_workflow(self, submit: bool = True):
         """Execute the entire workflow: Snapshot -> OCR -> InputText -> (Optional) HTTP POST."""
         try:
             # 1. Take Snapshot
-            camera_id = self.entry.data.get(CONF_CAMERA_ENTITY)
+            camera_id = self.config.get(CONF_CAMERA_ENTITY)
             await self.hass.services.async_call(
                 "camera",
                 "snapshot",
@@ -56,7 +64,7 @@ class SlgasReportService:
                 raise Exception("OCR 辨識失敗")
 
             # 3. Update input_text
-            text_id = self.entry.data.get(CONF_TEXT_ENTITY)
+            text_id = self.config.get(CONF_TEXT_ENTITY)
             await self.hass.services.async_call(
                 "input_text",
                 "set_value",
@@ -105,7 +113,7 @@ class SlgasReportService:
 
         # 2. 呼叫 Google Generative AI 服務
         # 註：這裡假設使用者已安裝官方的 google_generative_ai 整合
-        prompt = self.entry.data.get(CONF_PROMPT, DEFAULT_PROMPT)
+        prompt = self.config.get(CONF_PROMPT, DEFAULT_PROMPT)
         
         try:
             # 使用 HA 的服務呼叫方式
@@ -143,7 +151,7 @@ class SlgasReportService:
         except Exception as e:
             _LOGGER.warning(f"呼叫 Google AI 服務時發生錯誤: {e}")
             # 如果服務呼叫失敗，暫時回傳目前的數值作為保險 (或回傳 None 讓流程停止)
-            state = self.hass.states.get(self.entry.data.get(CONF_TEXT_ENTITY))
+            state = self.hass.states.get(self.config.get(CONF_TEXT_ENTITY))
             return state.state if state else None
 
     async def _submit_to_slgas(self, degree):
@@ -157,9 +165,9 @@ class SlgasReportService:
         async with aiohttp.ClientSession(headers=headers) as session:
             # Step 1: POST for validation (ChkField=Check)
             payload1 = {
-                "CusNo": self.entry.data.get(CONF_CUS_NO),
-                "CusName": self.entry.data.get(CONF_CUS_NAME).encode("big5"),
-                "Cuscallno": self.entry.data.get(CONF_CUS_PHONE),
+                "CusNo": self.config.get(CONF_CUS_NO),
+                "CusName": self.config.get(CONF_CUS_NAME).encode("big5"),
+                "Cuscallno": self.config.get(CONF_CUS_PHONE),
                 "ChkField": "Check",
                 "Send": "送出".encode("big5")
             }
@@ -207,14 +215,14 @@ class SlgasReportService:
 
     async def _send_notification(self, degree):
         """Call the user-configured HA script for notification."""
-        script_entity = self.entry.data.get(CONF_NOTIFY_SCRIPT)
+        script_entity = self.config.get(CONF_NOTIFY_SCRIPT)
         if not script_entity:
             _LOGGER.debug("未設定通知腳本，略過通知")
             return
 
         try:
             # Read current value from input_text entity
-            text_entity = self.entry.data.get(CONF_TEXT_ENTITY)
+            text_entity = self.config.get(CONF_TEXT_ENTITY)
             state = self.hass.states.get(text_entity)
             current_degree = state.state if state else degree
 
@@ -243,7 +251,7 @@ class SlgasReportService:
 
     def _add_to_history(self, degree, status):
         """Add record to history and keep within configured limit."""
-        max_records = int(self.entry.data.get(CONF_HISTORY_DAYS, DEFAULT_HISTORY_DAYS))
+        max_records = int(self.config.get(CONF_HISTORY_DAYS, DEFAULT_HISTORY_DAYS))
         
         now = datetime.now()
         today_str = now.strftime("%Y-%m-%d")
