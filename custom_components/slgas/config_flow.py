@@ -22,6 +22,49 @@ from .const import (
     DEFAULT_PROMPT,
 )
 
+class SlgasOptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle options flow for slgas."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize options flow."""
+        self.config_entry = config_entry
+
+    async def async_step_init(self, user_input=None):
+        """Manage the options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        # Use the official helper to add suggested values from current settings
+        # This handles merging data/options and prevents 500 errors from None values
+        current_config = {**self.config_entry.data, **self.config_entry.options}
+        
+        data_schema = vol.Schema({
+            vol.Required(CONF_CUS_NO): str,
+            vol.Required(CONF_CUS_NAME): str,
+            vol.Required(CONF_CUS_PHONE): str,
+            vol.Required(CONF_CAMERA_ENTITY): selector.EntitySelector(
+                {"domain": "camera"}
+            ),
+            vol.Required(CONF_TEXT_ENTITY): selector.EntitySelector(
+                {"domain": "input_text"}
+            ),
+            vol.Required(CONF_SCHEDULE_TIME): selector.TimeSelector(),
+            vol.Optional(CONF_NOTIFY_SCRIPT): selector.EntitySelector(
+                {"domain": "script"}
+            ),
+            vol.Optional(CONF_HISTORY_DAYS): selector.NumberSelector(
+                {"min": 1, "max": 365, "step": 1, "mode": "box"}
+            ),
+            vol.Optional(CONF_PROMPT): selector.TextSelector(
+                {"multiline": True}
+            ),
+        })
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=self.add_suggested_values_to_schema(data_schema, current_config),
+        )
+
 class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for slgas."""
 
@@ -51,20 +94,20 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required(CONF_CUS_NAME): str,
             vol.Required(CONF_CUS_PHONE): str,
             vol.Required(CONF_CAMERA_ENTITY): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain="camera")
+                {"domain": "camera"}
             ),
             vol.Required(CONF_TEXT_ENTITY): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain="input_text")
+                {"domain": "input_text"}
             ),
             vol.Required(CONF_SCHEDULE_TIME, default="08:00:00"): selector.TimeSelector(),
             vol.Optional(CONF_NOTIFY_SCRIPT): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain="script")
+                {"domain": "script"}
             ),
             vol.Optional(CONF_HISTORY_DAYS, default=DEFAULT_HISTORY_DAYS): selector.NumberSelector(
-                selector.NumberSelectorConfig(min=1, max=365, step=1, mode="box")
+                {"min": 1, "max": 365, "step": 1, "mode": "box"}
             ),
             vol.Optional(CONF_PROMPT, default=DEFAULT_PROMPT): selector.TextSelector(
-                selector.TextSelectorConfig(multiline=True)
+                {"multiline": True}
             ),
         })
 
@@ -72,45 +115,4 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=data_schema,
             errors=errors,
-        )
-
-class SlgasOptionsFlowHandler(config_entries.OptionsFlow):
-    """Handle options flow for slgas."""
-
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """Initialize options flow."""
-        self.config_entry = config_entry
-
-    async def async_step_init(self, user_input=None):
-        """Manage the options."""
-        if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
-
-        # Merge data and options
-        # In OptionsFlow, self.config_entry is usually available
-        options = {**self.config_entry.data, **self.config_entry.options}
-
-        return self.async_show_form(
-            step_id="init",
-            data_schema=vol.Schema({
-                vol.Required(CONF_CUS_NO, default=options.get(CONF_CUS_NO, "")): str,
-                vol.Required(CONF_CUS_NAME, default=options.get(CONF_CUS_NAME, "")): str,
-                vol.Required(CONF_CUS_PHONE, default=options.get(CONF_CUS_PHONE, "")): str,
-                vol.Required(CONF_CAMERA_ENTITY, default=options.get(CONF_CAMERA_ENTITY)): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="camera")
-                ),
-                vol.Required(CONF_TEXT_ENTITY, default=options.get(CONF_TEXT_ENTITY)): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="input_text")
-                ),
-                vol.Required(CONF_SCHEDULE_TIME, default=options.get(CONF_SCHEDULE_TIME, "08:00:00")): selector.TimeSelector(),
-                vol.Optional(CONF_NOTIFY_SCRIPT, default=options.get(CONF_NOTIFY_SCRIPT)): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="script")
-                ),
-                vol.Optional(CONF_HISTORY_DAYS, default=options.get(CONF_HISTORY_DAYS, DEFAULT_HISTORY_DAYS)): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=1, max=365, step=1, mode="box")
-                ),
-                vol.Optional(CONF_PROMPT, default=options.get(CONF_PROMPT, DEFAULT_PROMPT)): selector.TextSelector(
-                    selector.TextSelectorConfig(multiline=True)
-                ),
-            })
         )
