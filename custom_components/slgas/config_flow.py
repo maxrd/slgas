@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.core import callback
 from homeassistant.helpers import selector
 import homeassistant.helpers.config_validation as cv
 
@@ -27,7 +28,7 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     @staticmethod
-    @config_entries.callback
+    @callback
     def async_get_options_flow(config_entry: config_entries.ConfigEntry):
         """Get the options flow for this handler."""
         return SlgasOptionsFlowHandler(config_entry)
@@ -87,6 +88,7 @@ class SlgasOptionsFlowHandler(config_entries.OptionsFlow):
             return self.async_create_entry(title="", data=user_input)
 
         # Merge data and options to show current values
+        # Use merged dictionary but ensure keys exist
         options = {**self.config_entry.data, **self.config_entry.options}
 
         return self.async_show_form(
@@ -95,14 +97,14 @@ class SlgasOptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Required(CONF_CUS_NO, default=options.get(CONF_CUS_NO, "")): str,
                 vol.Required(CONF_CUS_NAME, default=options.get(CONF_CUS_NAME, "")): str,
                 vol.Required(CONF_CUS_PHONE, default=options.get(CONF_CUS_PHONE, "")): str,
-                vol.Required(CONF_CAMERA_ENTITY, default=options.get(CONF_CAMERA_ENTITY)): selector.EntitySelector(
+                vol.Required(CONF_CAMERA_ENTITY, default=options.get(CONF_CAMERA_ENTITY, "")): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="camera")
                 ),
-                vol.Required(CONF_TEXT_ENTITY, default=options.get(CONF_TEXT_ENTITY)): selector.EntitySelector(
+                vol.Required(CONF_TEXT_ENTITY, default=options.get(CONF_TEXT_ENTITY, "")): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="input_text")
                 ),
                 vol.Required(CONF_SCHEDULE_TIME, default=options.get(CONF_SCHEDULE_TIME, "08:00:00")): selector.TimeSelector(),
-                vol.Optional(CONF_NOTIFY_SCRIPT, default=options.get(CONF_NOTIFY_SCRIPT)): selector.EntitySelector(
+                vol.Optional(CONF_NOTIFY_SCRIPT, default=options.get(CONF_NOTIFY_SCRIPT, "")): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="script")
                 ),
                 vol.Optional(CONF_HISTORY_DAYS, default=options.get(CONF_HISTORY_DAYS, DEFAULT_HISTORY_DAYS)): selector.NumberSelector(

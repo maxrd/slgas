@@ -45,6 +45,7 @@ class SlgasReportService:
         """Execute the entire workflow: Snapshot -> OCR -> InputText -> (Optional) HTTP POST."""
         try:
             # 1. Take Snapshot
+            self.last_status = "正在拍攝照片..."
             camera_id = self.config.get(CONF_CAMERA_ENTITY)
             await self.hass.services.async_call(
                 "camera",
@@ -55,13 +56,10 @@ class SlgasReportService:
             _LOGGER.info(f"已拍攝照片並存於 {DEFAULT_IMAGE_PATH}")
 
             # 2. AI OCR (Google Generative AI)
-            # Note: We assume the user has configured google_generative_ai integration
-            # We use a placeholder logic or prompt.
-            # Here we trigger the service and parse the response.
-            # For this implementation, we assume a specific action exists or we use a generic approach.
+            self.last_status = "正在進行 AI OCR 辨識..."
             ocr_degree = await self._perform_ocr()
             if not ocr_degree:
-                raise Exception("OCR 辨識失敗")
+                raise Exception("OCR 辨識失敗 (無法取得度數)")
 
             # 3. Update input_text
             text_id = self.config.get(CONF_TEXT_ENTITY)
@@ -75,14 +73,15 @@ class SlgasReportService:
 
             # 4. Submit to slgas.com.tw (Optional)
             if submit:
+                self.last_status = f"正在上報網站 (度數: {ocr_degree})..."
                 success = await self._submit_to_slgas(ocr_degree)
                 if success:
-                    self.last_status = "成功"
+                    self.last_status = f"上報成功: {ocr_degree}"
                 else:
-                    self.last_status = "回報失敗"
+                    self.last_status = f"回報失敗 (度數: {ocr_degree})"
             else:
-                self.last_status = "辨識完成 (待確認)"
-                _LOGGER.info("排程執行：已完成 OCR 辨識，跳過自動上報。")
+                self.last_status = f"辨識完成: {ocr_degree} (待確認)"
+                _LOGGER.info(f"排程執行：已完成 OCR 辨識 ({ocr_degree})，跳過自動上報。")
                 
             self._add_to_history(ocr_degree, self.last_status)
 
