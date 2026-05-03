@@ -29,7 +29,7 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry: config_entries.ConfigEntry):
+    def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> SlgasOptionsFlowHandler:
         """Get the options flow for this handler."""
         return SlgasOptionsFlowHandler(config_entry)
 
@@ -38,7 +38,6 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
 
         if user_input is not None:
-            # Check if already configured
             await self.async_set_unique_id(user_input[CONF_CUS_NO])
             self._abort_if_unique_id_configured()
             
@@ -78,7 +77,7 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class SlgasOptionsFlowHandler(config_entries.OptionsFlow):
     """Handle options flow for slgas."""
 
-    def __init__(self, config_entry: config_entries.ConfigEntry):
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize options flow."""
         self.config_entry = config_entry
 
@@ -87,8 +86,8 @@ class SlgasOptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
-        # Merge data and options to show current values
-        # Use merged dictionary but ensure keys exist
+        # Merge data and options
+        # In OptionsFlow, self.config_entry is usually available
         options = {**self.config_entry.data, **self.config_entry.options}
 
         return self.async_show_form(
@@ -97,14 +96,14 @@ class SlgasOptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Required(CONF_CUS_NO, default=options.get(CONF_CUS_NO, "")): str,
                 vol.Required(CONF_CUS_NAME, default=options.get(CONF_CUS_NAME, "")): str,
                 vol.Required(CONF_CUS_PHONE, default=options.get(CONF_CUS_PHONE, "")): str,
-                vol.Required(CONF_CAMERA_ENTITY, default=options.get(CONF_CAMERA_ENTITY, "")): selector.EntitySelector(
+                vol.Required(CONF_CAMERA_ENTITY, default=options.get(CONF_CAMERA_ENTITY)): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="camera")
                 ),
-                vol.Required(CONF_TEXT_ENTITY, default=options.get(CONF_TEXT_ENTITY, "")): selector.EntitySelector(
+                vol.Required(CONF_TEXT_ENTITY, default=options.get(CONF_TEXT_ENTITY)): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="input_text")
                 ),
                 vol.Required(CONF_SCHEDULE_TIME, default=options.get(CONF_SCHEDULE_TIME, "08:00:00")): selector.TimeSelector(),
-                vol.Optional(CONF_NOTIFY_SCRIPT, default=options.get(CONF_NOTIFY_SCRIPT, "")): selector.EntitySelector(
+                vol.Optional(CONF_NOTIFY_SCRIPT, default=options.get(CONF_NOTIFY_SCRIPT)): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="script")
                 ),
                 vol.Optional(CONF_HISTORY_DAYS, default=options.get(CONF_HISTORY_DAYS, DEFAULT_HISTORY_DAYS)): selector.NumberSelector(
