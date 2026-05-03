@@ -18,9 +18,18 @@ from .const import (
     CONF_NOTIFY_SCRIPT,
     CONF_HISTORY_DAYS,
     CONF_PROMPT,
+    CONF_OCR_SOURCE,
+    CONF_DEGREE_ENTITY,
+    OCR_SOURCE_GOOGLE_AI,
+    OCR_SOURCE_EXTERNAL,
     DEFAULT_HISTORY_DAYS,
     DEFAULT_PROMPT,
 )
+
+OCR_SOURCE_OPTIONS = [
+    selector.SelectOptionDict(value=OCR_SOURCE_GOOGLE_AI, label="Google AI (攝影機 + AI 辨識)"),
+    selector.SelectOptionDict(value=OCR_SOURCE_EXTERNAL, label="外部實體 (input_text / sensor)"),
+]
 
 
 class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -51,8 +60,17 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required(CONF_CUS_NO): str,
             vol.Required(CONF_CUS_NAME): str,
             vol.Required(CONF_CUS_PHONE): str,
-            vol.Required(CONF_CAMERA_ENTITY): selector.EntitySelector(
+            vol.Required(CONF_OCR_SOURCE, default=OCR_SOURCE_GOOGLE_AI): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=OCR_SOURCE_OPTIONS,
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Optional(CONF_CAMERA_ENTITY): selector.EntitySelector(
                 {"domain": "camera"}
+            ),
+            vol.Optional(CONF_DEGREE_ENTITY): selector.EntitySelector(
+                {"domain": ["input_text", "sensor"]}
             ),
             vol.Required(CONF_TEXT_ENTITY): selector.EntitySelector(
                 {"domain": "input_text"}
@@ -106,9 +124,22 @@ class SlgasOptionsFlowHandler(config_entries.OptionsFlow):
                 CONF_CUS_PHONE, default=config.get(CONF_CUS_PHONE, "")
             ): str,
             vol.Required(
+                CONF_OCR_SOURCE, default=config.get(CONF_OCR_SOURCE, OCR_SOURCE_GOOGLE_AI)
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=OCR_SOURCE_OPTIONS,
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Optional(
                 CONF_CAMERA_ENTITY, default=config.get(CONF_CAMERA_ENTITY, "")
             ): selector.EntitySelector(
                 {"domain": "camera"}
+            ),
+            vol.Optional(
+                CONF_DEGREE_ENTITY, default=config.get(CONF_DEGREE_ENTITY, "")
+            ): selector.EntitySelector(
+                {"domain": ["input_text", "sensor"]}
             ),
             vol.Required(
                 CONF_TEXT_ENTITY, default=config.get(CONF_TEXT_ENTITY, "")

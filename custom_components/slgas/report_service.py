@@ -20,6 +20,10 @@ from .const import (
     CONF_NOTIFY_SCRIPT,
     CONF_HISTORY_DAYS,
     CONF_PROMPT,
+    CONF_OCR_SOURCE,
+    CONF_DEGREE_ENTITY,
+    OCR_SOURCE_GOOGLE_AI,
+    OCR_SOURCE_EXTERNAL,
     DEFAULT_HISTORY_DAYS,
     DEFAULT_PROMPT,
     DEFAULT_IMAGE_PATH,
@@ -42,39 +46,33 @@ class SlgasReportService:
         return {**self.entry.data, **self.entry.options}
 
     async def execute_full_workflow(self, submit: bool = True):
-        """Execute the entire workflow: Snapshot -> OCR -> InputText -> (Optional) HTTP POST."""
+        """Execute the entire workflow based on OCR source setting."""
         try:
-            # 1. Take Snapshot
-            self.last_status = "正在拍攝照片..."
-            camera_id = self.config.get(CONF_CAMERA_ENTITY)
-            await self.hass.services.async_call(
-                "camera",
-                "snapshot",
-                {"entity_id": camera_id, "filename": DEFAULT_IMAGE_PATH},
-                blocking=True
-            )
-            _LOGGER.info(f"已拍攝照片並存於 {DEFAULT_IMAGE_PATH}")
+            ocr_source = self.config.get(CONF_OCR_SOURCE, OCR_SOURCE_GOOGLE_AI)
 
-            # 等待檔案完全寫入磁碟
-            await asyncio.sleep(2)
+            if ocr_source == OCR_SOURCE_EXTERNAL:
+                # === 外部實體模式：直接讀取 degree_entity 的值 ===
+                ocr_degree = await self._read_external_degree()
+            else:
+                # === Google AI 模式：拍照 + AI OCR ===
+                ocr_degree = await self._google_ai_ocr()
 
-            # 2. AI OCR (Google Generative AI)
-            self.last_status = "正在進行 AI OCR 辨識..."
-            ocr_degree = await self._perform_ocr()
+            # 驗證度數是否為有效數字
             if not ocr_degree or not ocr_degree.isdigit():
-                raise Exception(f"OCR 辨識失敗 (取得結果: {ocr_degree})")
+                raise Exception(f"取得度數失敗 (結果: {ocr_degree})")
 
-            # 3. Update input_text
+            # 寫入 text_entity
             text_id = self.config.get(CONF_TEXT_ENTITY)
-            await self.hass.services.async_call(
-                "input_text",
-                "set_value",
-                {"entity_id": text_id, "value": ocr_degree},
-                blocking=True
-            )
-            _LOGGER.info(f"已更新 {text_id} 為 {ocr_degree}")
+            if text_id:
+                await self.hass.services.async_call(
+                    "input_text",
+                    "set_value",
+                    {"entity_id": text_id, "value": ocr_degree},
+                    blocking=True
+                )
+                _LOGGER.info(f"已更新 {text_id} 為 {ocr_degree}")
 
-            # 4. Submit to slgas.com.tw (Optional)
+            # 上報或待確認
             if submit:
                 self.last_status = f"正在上報網站 (度數: {ocr_degree})..."
                 success = await self._submit_to_slgas(ocr_degree)
@@ -84,17 +82,71 @@ class SlgasReportService:
                     self.last_status = f"回報失敗 (度數: {ocr_degree})"
             else:
                 self.last_status = f"辨識完成: {ocr_degree} (待確認)"
-                _LOGGER.info(f"排程執行：已完成 OCR 辨識 ({ocr_degree})，跳過自動上報。")
-                
+                _LOGGER.info(f"排程執行：已完成取得度數 ({ocr_degree})，跳過自動上報。")
+
             self._add_to_history(ocr_degree, self.last_status)
 
-            # 5. Send notification via script (if configured)
+            # 發送通知
             await self._send_notification(ocr_degree)
 
         except Exception as e:
             _LOGGER.error(f"瓦斯回報流程出錯: {e}")
             self.last_status = f"錯誤: {str(e)}"
             self._add_to_history("N/A", self.last_status)
+
+    async def _google_ai_ocr(self):
+        """Google AI mode: snapshot + OCR."""
+        # 1. 拍照
+        self.last_status = "正在拍攝照片..."
+        camera_id = self.config.get(CONF_CAMERA_ENTITY)
+        if not camera_id:
+            raise Exception("Google AI 模式需要設定攝影機實體")
+
+        await self.hass.services.async_call(
+            "camera",
+            "snapshot",
+            {"entity_id": camera_id, "filename": DEFAULT_IMAGE_PATH},
+            blocking=True
+        )
+        _LOGGER.info(f"已拍攝照片並存於 {DEFAULT_IMAGE_PATH}")
+
+        # 等待檔案完全寫入磁碟
+        await asyncio.sleep(2)
+
+        # 2. AI OCR
+        self.last_status = "正在進行 AI OCR 辨識..."
+        return await self._perform_ocr()
+
+    async def _read_external_degree(self):
+        """External mode: read degree from degree_entity."""
+        degree_entity_id = self.config.get(CONF_DEGREE_ENTITY)
+        if not degree_entity_id:
+            raise Exception("外部實體模式需要設定度數實體 (degree_entity)")
+
+        self.last_status = f"正在讀取 {degree_entity_id}..."
+        state = self.hass.states.get(degree_entity_id)
+
+        if state is None:
+            raise Exception(f"找不到實體: {degree_entity_id}")
+
+        value = state.state
+        if value in ("unknown", "unavailable", None, ""):
+            raise Exception(f"{degree_entity_id} 目前狀態無效: {value}")
+
+        _LOGGER.info(f"從 {degree_entity_id} 讀取到度數: {value}")
+
+        # 提取數字部分 (例如 sensor 可能帶有單位)
+        match = re.search(r"(\d{4})", value)
+        if match:
+            return match.group(1)
+
+        # 如果整個值就是數字
+        cleaned = value.strip()
+        if cleaned.isdigit():
+            return cleaned
+
+        _LOGGER.warning(f"從 {degree_entity_id} 取得的值無法解析為度數: {value}")
+        return value
 
     async def _perform_ocr(self):
         """Call Google AI OCR service to recognize degree."""

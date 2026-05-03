@@ -12,6 +12,12 @@ CONF_SCHEDULE_TIME = "schedule_time"
 CONF_NOTIFY_SCRIPT = "notify_script"
 CONF_HISTORY_DAYS = "history_days"
 CONF_PROMPT = "prompt"
+CONF_OCR_SOURCE = "ocr_source"
+CONF_DEGREE_ENTITY = "degree_entity"
+
+# OCR source options
+OCR_SOURCE_GOOGLE_AI = "google_ai"
+OCR_SOURCE_EXTERNAL = "external"
 
 # Defaults
 DEFAULT_HISTORY_DAYS = 90
