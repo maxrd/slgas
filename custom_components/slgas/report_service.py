@@ -39,6 +39,7 @@ class SlgasReportService:
         self.entry = entry
         self.history = []
         self.last_status = "尚未執行"
+        self.meter_sensor = None  # 由 sensor.py 設定引用
 
     @property
     def config(self):
@@ -61,7 +62,12 @@ class SlgasReportService:
             if not ocr_degree or not ocr_degree.isdigit():
                 raise Exception(f"取得度數失敗 (結果: {ocr_degree})")
 
-            # 寫入 text_entity
+            # 優先更新原生能源感測器
+            if self.meter_sensor is not None:
+                self.meter_sensor.update_meter(int(ocr_degree))
+                _LOGGER.info(f"已更新原生瓦斯度數感測器為 {ocr_degree}")
+
+            # 選填：同步寫入 text_entity (若有設定)
             text_id = self.config.get(CONF_TEXT_ENTITY)
             if text_id:
                 await self.hass.services.async_call(
@@ -70,7 +76,7 @@ class SlgasReportService:
                     {"entity_id": text_id, "value": ocr_degree},
                     blocking=True
                 )
-                _LOGGER.info(f"已更新 {text_id} 為 {ocr_degree}")
+                _LOGGER.info(f"已同步更新 {text_id} 為 {ocr_degree}")
 
             # 上報或待確認
             if submit:

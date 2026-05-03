@@ -3,14 +3,21 @@
     "step": {
       "user": {
         "title": "設定欣隆瓦斯自動回報",
+        "description": "第 1 步：填寫用戶基本資料並選擇度數來源。",
         "data": {
           "cus_no": "用戶編號 (CusNo)",
           "cus_name": "用戶名稱 (CusName)",
           "cus_phone": "用戶手機 (Cuscallno)",
-          "ocr_source": "度數來源",
+          "ocr_source": "度數來源"
+        }
+      },
+      "setup": {
+        "title": "設定欣隆瓦斯 - 來源詳細設定",
+        "description": "第 2 步：根據您選擇的度數來源，設定相關欄位。",
+        "data": {
           "camera_entity": "攝影機 (Google AI 模式使用)",
-          "degree_entity": "度數實體 (外部模式, input_text 或 sensor)",
-          "text_entity": "度數存放實體 (input_text)",
+          "degree_entity": "度數來源實體 (input_text 或 sensor)",
+          "text_entity": "度數同步實體 (input_text, 選填)",
           "schedule_time": "每日自動辨識執行時間",
           "notify_script": "通知腳本 (可留空)",
           "history_days": "歷史紀錄保留天數",
@@ -18,28 +25,43 @@
         }
       }
     },
+    "error": {
+      "camera_required": "Google AI 模式必須設定攝影機實體。",
+      "degree_entity_required": "外部實體模式必須設定度數來源實體。"
+    },
     "abort": {
       "already_configured": "此用戶編號已設定過。"
     }
   },
   "options": {
     "step": {
-      "user": {
+      "init": {
         "title": "修改設定 - 欣隆瓦斯自動回報",
+        "description": "第 1 步：修改用戶基本資料與度數來源。",
         "data": {
           "cus_no": "用戶編號 (CusNo)",
           "cus_name": "用戶名稱 (CusName)",
           "cus_phone": "用戶手機 (Cuscallno)",
-          "ocr_source": "度數來源",
+          "ocr_source": "度數來源"
+        }
+      },
+      "setup": {
+        "title": "修改設定 - 來源詳細設定",
+        "description": "第 2 步：修改度數來源相關設定。",
+        "data": {
           "camera_entity": "攝影機 (Google AI 模式使用)",
-          "degree_entity": "度數實體 (外部模式, input_text 或 sensor)",
-          "text_entity": "度數存放實體 (input_text)",
+          "degree_entity": "度數來源實體 (input_text 或 sensor)",
+          "text_entity": "度數同步實體 (input_text, 選填)",
           "schedule_time": "每日自動辨識執行時間",
           "notify_script": "通知腳本 (可留空)",
           "history_days": "歷史紀錄保留天數",
           "prompt": "Google AI 辨識指令 (Prompt)"
         }
       }
+    },
+    "error": {
+      "camera_required": "Google AI 模式必須設定攝影機實體。",
+      "degree_entity_required": "外部實體模式必須設定度數來源實體。"
     }
   }
 }

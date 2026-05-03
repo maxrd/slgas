@@ -3,14 +3,21 @@
     "step": {
       "user": {
         "title": "Configure SLGAS Auto Report",
+        "description": "Step 1: Enter basic customer information and select reading source.",
         "data": {
           "cus_no": "Customer Number (CusNo)",
           "cus_name": "Customer Name (CusName)",
           "cus_phone": "Phone Number (Cuscallno)",
-          "ocr_source": "Degree Source",
+          "ocr_source": "Degree Source"
+        }
+      },
+      "setup": {
+        "title": "Configure SLGAS - Source Settings",
+        "description": "Step 2: Configure settings based on your selected reading source.",
+        "data": {
           "camera_entity": "Camera (for Google AI mode)",
-          "degree_entity": "Degree Entity (for External mode, input_text or sensor)",
-          "text_entity": "Degree Storage (input_text)",
+          "degree_entity": "Degree Source Entity (input_text or sensor)",
+          "text_entity": "Degree Sync Entity (input_text, optional)",
           "schedule_time": "Daily Schedule Time",
           "notify_script": "Notification Script (optional)",
           "history_days": "History Retention (days)",
@@ -18,28 +25,43 @@
         }
       }
     },
+    "error": {
+      "camera_required": "Camera entity is required for Google AI mode.",
+      "degree_entity_required": "Degree entity is required for External mode."
+    },
     "abort": {
       "already_configured": "This customer number is already configured."
     }
   },
   "options": {
     "step": {
-      "user": {
+      "init": {
         "title": "Configure SLGAS Auto Report",
+        "description": "Step 1: Modify basic settings and reading source.",
         "data": {
           "cus_no": "Customer Number (CusNo)",
           "cus_name": "Customer Name (CusName)",
           "cus_phone": "Phone Number (Cuscallno)",
-          "ocr_source": "Degree Source",
+          "ocr_source": "Degree Source"
+        }
+      },
+      "setup": {
+        "title": "Configure SLGAS - Source Settings",
+        "description": "Step 2: Modify settings based on your selected reading source.",
+        "data": {
           "camera_entity": "Camera (for Google AI mode)",
-          "degree_entity": "Degree Entity (for External mode, input_text or sensor)",
-          "text_entity": "Degree Storage (input_text)",
+          "degree_entity": "Degree Source Entity (input_text or sensor)",
+          "text_entity": "Degree Sync Entity (input_text, optional)",
           "schedule_time": "Daily Schedule Time",
           "notify_script": "Notification Script (optional)",
           "history_days": "History Retention (days)",
           "prompt": "Google AI OCR Prompt"
         }
       }
+    },
+    "error": {
+      "camera_required": "Camera entity is required for Google AI mode.",
+      "degree_entity_required": "Degree entity is required for External mode."
     }
   }
 }

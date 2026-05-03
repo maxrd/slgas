@@ -32,10 +32,50 @@ OCR_SOURCE_OPTIONS = [
 ]
 
 
+def _build_setup_schema(ocr_source: str, defaults: dict | None = None) -> vol.Schema:
+    """Build the setup step schema based on OCR source selection."""
+    defaults = defaults or {}
+    schema = {}
+
+    if ocr_source == OCR_SOURCE_GOOGLE_AI:
+        # Google AI 模式：攝影機必填，prompt 選填
+        schema[vol.Required(
+            CONF_CAMERA_ENTITY, default=defaults.get(CONF_CAMERA_ENTITY, "")
+        )] = selector.EntitySelector({"domain": "camera"})
+        schema[vol.Optional(
+            CONF_PROMPT, default=defaults.get(CONF_PROMPT, DEFAULT_PROMPT)
+        )] = selector.TextSelector({"multiline": True})
+    else:
+        # 外部實體模式：degree_entity 必填
+        schema[vol.Required(
+            CONF_DEGREE_ENTITY, default=defaults.get(CONF_DEGREE_ENTITY, "")
+        )] = selector.EntitySelector({"domain": ["input_text", "sensor"]})
+
+    # 共用欄位
+    schema[vol.Optional(
+        CONF_TEXT_ENTITY, default=defaults.get(CONF_TEXT_ENTITY, "")
+    )] = selector.EntitySelector({"domain": "input_text"})
+    schema[vol.Required(
+        CONF_SCHEDULE_TIME, default=defaults.get(CONF_SCHEDULE_TIME, "08:00:00")
+    )] = selector.TimeSelector()
+    schema[vol.Optional(
+        CONF_NOTIFY_SCRIPT, default=defaults.get(CONF_NOTIFY_SCRIPT, "")
+    )] = selector.EntitySelector({"domain": "script"})
+    schema[vol.Optional(
+        CONF_HISTORY_DAYS, default=defaults.get(CONF_HISTORY_DAYS, DEFAULT_HISTORY_DAYS)
+    )] = selector.NumberSelector({"min": 1, "max": 365, "step": 1, "mode": "box"})
+
+    return vol.Schema(schema)
+
+
 class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for slgas."""
 
     VERSION = 1
+
+    def __init__(self):
+        """Initialize the config flow."""
+        self._user_input: dict = {}
 
     @staticmethod
     @callback
@@ -44,17 +84,13 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return SlgasOptionsFlowHandler()
 
     async def async_step_user(self, user_input=None):
-        """Handle the initial step."""
+        """Handle step 1: basic info + OCR source selection."""
         errors = {}
 
         if user_input is not None:
-            await self.async_set_unique_id(user_input[CONF_CUS_NO])
-            self._abort_if_unique_id_configured()
-
-            return self.async_create_entry(
-                title=f"瓦斯自動回報 ({user_input[CONF_CUS_NO]})",
-                data=user_input,
-            )
+            # 儲存第一步資料，進入第二步
+            self._user_input = user_input
+            return await self.async_step_setup()
 
         data_schema = vol.Schema({
             vol.Required(CONF_CUS_NO): str,
@@ -66,29 +102,46 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     mode=selector.SelectSelectorMode.DROPDOWN,
                 )
             ),
-            vol.Optional(CONF_CAMERA_ENTITY): selector.EntitySelector(
-                {"domain": "camera"}
-            ),
-            vol.Optional(CONF_DEGREE_ENTITY): selector.EntitySelector(
-                {"domain": ["input_text", "sensor"]}
-            ),
-            vol.Required(CONF_TEXT_ENTITY): selector.EntitySelector(
-                {"domain": "input_text"}
-            ),
-            vol.Required(CONF_SCHEDULE_TIME, default="08:00:00"): selector.TimeSelector(),
-            vol.Optional(CONF_NOTIFY_SCRIPT): selector.EntitySelector(
-                {"domain": "script"}
-            ),
-            vol.Optional(CONF_HISTORY_DAYS, default=DEFAULT_HISTORY_DAYS): selector.NumberSelector(
-                {"min": 1, "max": 365, "step": 1, "mode": "box"}
-            ),
-            vol.Optional(CONF_PROMPT, default=DEFAULT_PROMPT): selector.TextSelector(
-                {"multiline": True}
-            ),
         })
 
         return self.async_show_form(
             step_id="user",
+            data_schema=data_schema,
+            errors=errors,
+        )
+
+    async def async_step_setup(self, user_input=None):
+        """Handle step 2: source-specific settings."""
+        errors = {}
+
+        if user_input is not None:
+            ocr_source = self._user_input.get(CONF_OCR_SOURCE, OCR_SOURCE_GOOGLE_AI)
+
+            # 驗證必填欄位
+            if ocr_source == OCR_SOURCE_GOOGLE_AI:
+                if not user_input.get(CONF_CAMERA_ENTITY):
+                    errors[CONF_CAMERA_ENTITY] = "camera_required"
+            else:
+                if not user_input.get(CONF_DEGREE_ENTITY):
+                    errors[CONF_DEGREE_ENTITY] = "degree_entity_required"
+
+            if not errors:
+                # 合併兩步資料
+                full_data = {**self._user_input, **user_input}
+
+                await self.async_set_unique_id(full_data[CONF_CUS_NO])
+                self._abort_if_unique_id_configured()
+
+                return self.async_create_entry(
+                    title=f"瓦斯自動回報 ({full_data[CONF_CUS_NO]})",
+                    data=full_data,
+                )
+
+        ocr_source = self._user_input.get(CONF_OCR_SOURCE, OCR_SOURCE_GOOGLE_AI)
+        data_schema = _build_setup_schema(ocr_source)
+
+        return self.async_show_form(
+            step_id="setup",
             data_schema=data_schema,
             errors=errors,
         )
@@ -99,21 +152,18 @@ class SlgasOptionsFlowHandler(config_entries.OptionsFlow):
 
     def __init__(self):
         """Initialize options flow."""
-        pass
+        self._user_input: dict = {}
 
     async def async_step_init(self, user_input=None):
-        """Redirect to user step."""
-        return await self.async_step_user(user_input)
-
-    async def async_step_user(self, user_input=None):
-        """Manage the options."""
+        """Handle step 1: basic info + OCR source selection."""
         errors = {}
         config = {**self.config_entry.data, **self.config_entry.options}
 
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            self._user_input = user_input
+            return await self.async_step_setup()
 
-        schema = {
+        schema = vol.Schema({
             vol.Required(
                 CONF_CUS_NO, default=config.get(CONF_CUS_NO, "")
             ): str,
@@ -131,43 +181,39 @@ class SlgasOptionsFlowHandler(config_entries.OptionsFlow):
                     mode=selector.SelectSelectorMode.DROPDOWN,
                 )
             ),
-            vol.Optional(
-                CONF_CAMERA_ENTITY, default=config.get(CONF_CAMERA_ENTITY, "")
-            ): selector.EntitySelector(
-                {"domain": "camera"}
-            ),
-            vol.Optional(
-                CONF_DEGREE_ENTITY, default=config.get(CONF_DEGREE_ENTITY, "")
-            ): selector.EntitySelector(
-                {"domain": ["input_text", "sensor"]}
-            ),
-            vol.Required(
-                CONF_TEXT_ENTITY, default=config.get(CONF_TEXT_ENTITY, "")
-            ): selector.EntitySelector(
-                {"domain": "input_text"}
-            ),
-            vol.Required(
-                CONF_SCHEDULE_TIME, default=config.get(CONF_SCHEDULE_TIME, "08:00:00")
-            ): selector.TimeSelector(),
-            vol.Optional(
-                CONF_NOTIFY_SCRIPT, default=config.get(CONF_NOTIFY_SCRIPT, "")
-            ): selector.EntitySelector(
-                {"domain": "script"}
-            ),
-            vol.Optional(
-                CONF_HISTORY_DAYS, default=config.get(CONF_HISTORY_DAYS, DEFAULT_HISTORY_DAYS)
-            ): selector.NumberSelector(
-                {"min": 1, "max": 365, "step": 1, "mode": "box"}
-            ),
-            vol.Optional(
-                CONF_PROMPT, default=config.get(CONF_PROMPT, DEFAULT_PROMPT)
-            ): selector.TextSelector(
-                {"multiline": True}
-            ),
-        }
+        })
 
         return self.async_show_form(
-            step_id="user",
-            data_schema=vol.Schema(schema),
+            step_id="init",
+            data_schema=schema,
+            errors=errors,
+        )
+
+    async def async_step_setup(self, user_input=None):
+        """Handle step 2: source-specific settings."""
+        errors = {}
+        config = {**self.config_entry.data, **self.config_entry.options}
+
+        if user_input is not None:
+            ocr_source = self._user_input.get(CONF_OCR_SOURCE, OCR_SOURCE_GOOGLE_AI)
+
+            # 驗證必填欄位
+            if ocr_source == OCR_SOURCE_GOOGLE_AI:
+                if not user_input.get(CONF_CAMERA_ENTITY):
+                    errors[CONF_CAMERA_ENTITY] = "camera_required"
+            else:
+                if not user_input.get(CONF_DEGREE_ENTITY):
+                    errors[CONF_DEGREE_ENTITY] = "degree_entity_required"
+
+            if not errors:
+                full_data = {**self._user_input, **user_input}
+                return self.async_create_entry(title="", data=full_data)
+
+        ocr_source = self._user_input.get(CONF_OCR_SOURCE, OCR_SOURCE_GOOGLE_AI)
+        data_schema = _build_setup_schema(ocr_source, defaults=config)
+
+        return self.async_show_form(
+            step_id="setup",
+            data_schema=data_schema,
             errors=errors,
         )
