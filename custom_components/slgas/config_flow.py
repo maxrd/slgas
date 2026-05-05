@@ -59,10 +59,12 @@ def _build_setup_schema(ocr_source: str, defaults: dict | None = None) -> vol.Sc
         CONF_SCHEDULE_TIME, default=defaults.get(CONF_SCHEDULE_TIME, "08:00:00")
     )] = selector.TimeSelector()
     schema[vol.Optional(
-        CONF_NOTIFY_SCRIPT, default=defaults.get(CONF_NOTIFY_SCRIPT, "")
+        CONF_NOTIFY_SCRIPT,
+        description={"suggested_value": defaults.get(CONF_NOTIFY_SCRIPT)},
     )] = selector.EntitySelector({"domain": "script"})
     schema[vol.Optional(
-        CONF_HISTORY_DAYS, default=defaults.get(CONF_HISTORY_DAYS, DEFAULT_HISTORY_DAYS)
+        CONF_HISTORY_DAYS,
+        description={"suggested_value": defaults.get(CONF_HISTORY_DAYS, DEFAULT_HISTORY_DAYS)},
     )] = selector.NumberSelector({"min": 1, "max": 365, "step": 1, "mode": "box"})
 
     return vol.Schema(schema)
