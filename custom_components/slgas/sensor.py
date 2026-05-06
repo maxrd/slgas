@@ -30,8 +30,9 @@ async def async_setup_entry(
     meter_sensor = SlgasMeterSensor(report_service, entry)
     status_sensor = SlgasReportSensor(report_service, entry)
 
-    # 將 meter_sensor 引用存入 report_service，以便流程中更新
+    # 將感測器引用存入 report_service，以便流程中主動推送狀態
     report_service.meter_sensor = meter_sensor
+    report_service.status_sensor = status_sensor
 
     async_add_entities([meter_sensor, status_sensor], True)
 

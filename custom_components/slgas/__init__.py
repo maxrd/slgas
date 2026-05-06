@@ -56,14 +56,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except ValueError:
         _LOGGER.error(f"無效的時間格式: {schedule_str}")
 
-    # Register service (only once)
+    # Register service (only once); runs ALL active entries
     if not hass.services.has_service(DOMAIN, SERVICE_EXECUTE_REPORT):
         async def handle_execute_report(call: ServiceCall):
             submit = call.data.get("submit", True)
-            # Find the active report_service for the first entry
-            for entry_data in hass.data.get(DOMAIN, {}).values():
+            for entry_data in list(hass.data.get(DOMAIN, {}).values()):
                 await entry_data.execute_full_workflow(submit=submit)
-                break
 
         hass.services.async_register(DOMAIN, SERVICE_EXECUTE_REPORT, handle_execute_report)
 

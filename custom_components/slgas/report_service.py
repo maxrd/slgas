@@ -10,13 +10,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 
 from .const import (
-    DOMAIN,
     CONF_CUS_NO,
     CONF_CUS_NAME,
     CONF_CUS_PHONE,
     CONF_CAMERA_ENTITY,
     CONF_TEXT_ENTITY,
-    CONF_SCHEDULE_TIME,
     CONF_NOTIFY_SCRIPT,
     CONF_HISTORY_DAYS,
     CONF_PROMPT,
@@ -26,7 +24,7 @@ from .const import (
     OCR_SOURCE_EXTERNAL,
     DEFAULT_HISTORY_DAYS,
     DEFAULT_PROMPT,
-    DEFAULT_IMAGE_PATH,
+    DEFAULT_IMAGE_DIR,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -39,7 +37,20 @@ class SlgasReportService:
         self.entry = entry
         self.history = []
         self.last_status = "尚未執行"
-        self.meter_sensor = None  # 由 sensor.py 設定引用
+        self.meter_sensor = None   # 由 sensor.py 設定引用
+        self.status_sensor = None  # 由 sensor.py 設定引用
+
+    def _update_status(self, msg: str) -> None:
+        """Update last_status and push state to HA immediately."""
+        self.last_status = msg
+        if self.status_sensor is not None:
+            self.status_sensor.async_write_ha_state()
+
+    @property
+    def image_path(self) -> str:
+        """Return per-entry snapshot path to avoid multi-entry file conflicts."""
+        cus_no = self.config.get(CONF_CUS_NO, self.entry.entry_id[:8])
+        return f"{DEFAULT_IMAGE_DIR}/slgas_{cus_no}.jpg"
 
     @property
     def config(self):
@@ -48,8 +59,10 @@ class SlgasReportService:
 
     async def execute_full_workflow(self, submit: bool = True):
         """Execute the entire workflow based on OCR source setting."""
+        cus_no = self.config.get(CONF_CUS_NO, self.entry.entry_id[:6])
         try:
             ocr_source = self.config.get(CONF_OCR_SOURCE, OCR_SOURCE_GOOGLE_AI)
+            _LOGGER.info(f"[{cus_no}] 開始執行流程 (submit={submit}, ocr_source={ocr_source})")
 
             if ocr_source == OCR_SOURCE_EXTERNAL:
                 # === 外部實體模式：直接讀取 degree_entity 的值 ===
@@ -65,7 +78,7 @@ class SlgasReportService:
             # 優先更新原生能源感測器
             if self.meter_sensor is not None:
                 self.meter_sensor.update_meter(int(ocr_degree))
-                _LOGGER.info(f"已更新原生瓦斯度數感測器為 {ocr_degree}")
+                _LOGGER.info(f"[{cus_no}] 已更新原生瓦斯度數感測器為 {ocr_degree}")
 
             # 選填：同步寫入 text_entity (若有設定)
             text_id = self.config.get(CONF_TEXT_ENTITY)
@@ -76,19 +89,19 @@ class SlgasReportService:
                     {"entity_id": text_id, "value": ocr_degree},
                     blocking=True
                 )
-                _LOGGER.info(f"已同步更新 {text_id} 為 {ocr_degree}")
+                _LOGGER.info(f"[{cus_no}] 已同步更新 {text_id} 為 {ocr_degree}")
 
             # 上報或待確認
             if submit:
-                self.last_status = f"正在上報網站 (度數: {ocr_degree})..."
+                self._update_status(f"正在上報網站 (度數: {ocr_degree})...")
                 success = await self._submit_to_slgas(ocr_degree)
                 if success:
-                    self.last_status = f"上報成功: {ocr_degree}"
+                    self._update_status(f"上報成功: {ocr_degree}")
                 else:
-                    self.last_status = f"回報失敗 (度數: {ocr_degree})"
+                    self._update_status(f"回報失敗 (度數: {ocr_degree})")
             else:
-                self.last_status = f"辨識完成: {ocr_degree} (待確認)"
-                _LOGGER.info(f"排程執行：已完成取得度數 ({ocr_degree})，跳過自動上報。")
+                self._update_status(f"辨識完成: {ocr_degree} (待確認)")
+                _LOGGER.info(f"[{cus_no}] 已完成取得度數 ({ocr_degree})，跳過自動上報。")
 
             self._add_to_history(ocr_degree, self.last_status)
 
@@ -96,31 +109,36 @@ class SlgasReportService:
             await self._send_notification(ocr_degree)
 
         except Exception as e:
-            _LOGGER.error(f"瓦斯回報流程出錯: {e}")
-            self.last_status = f"錯誤: {str(e)}"
+            _LOGGER.error(f"[{cus_no}] 瓦斯回報流程出錯: {e}")
+            self._update_status(f"錯誤: {str(e)}")
             self._add_to_history("N/A", self.last_status)
 
     async def _google_ai_ocr(self):
         """Google AI mode: snapshot + OCR."""
-        # 1. 拍照
-        self.last_status = "正在拍攝照片..."
+        cus_no = self.config.get(CONF_CUS_NO, self.entry.entry_id[:6])
         camera_id = self.config.get(CONF_CAMERA_ENTITY)
         if not camera_id:
             raise Exception("Google AI 模式需要設定攝影機實體")
 
-        await self.hass.services.async_call(
-            "camera",
-            "snapshot",
-            {"entity_id": camera_id, "filename": DEFAULT_IMAGE_PATH},
-            blocking=True
-        )
-        _LOGGER.info(f"已拍攝照片並存於 {DEFAULT_IMAGE_PATH}")
+        # 1. 拍照
+        self._update_status("正在拍攝照片...")
+        _LOGGER.info(f"[{cus_no}] 正在拍攝 {camera_id} ...")
+        try:
+            await self.hass.services.async_call(
+                "camera",
+                "snapshot",
+                {"entity_id": camera_id, "filename": self.image_path},
+                blocking=True
+            )
+        except Exception as snap_err:
+            raise Exception(f"camera.snapshot 失敗 ({camera_id}): {snap_err}") from snap_err
+        _LOGGER.info(f"[{cus_no}] 已拍攝照片並存於 {self.image_path}")
 
         # 等待檔案完全寫入磁碟
         await asyncio.sleep(2)
 
         # 2. AI OCR
-        self.last_status = "正在進行 AI OCR 辨識..."
+        self._update_status("正在進行 AI OCR 辨識...")
         return await self._perform_ocr()
 
     async def _read_external_degree(self):
@@ -129,7 +147,7 @@ class SlgasReportService:
         if not degree_entity_id:
             raise Exception("外部實體模式需要設定度數實體 (degree_entity)")
 
-        self.last_status = f"正在讀取 {degree_entity_id}..."
+        self._update_status(f"正在讀取 {degree_entity_id}...")
         state = self.hass.states.get(degree_entity_id)
 
         if state is None:
@@ -160,32 +178,21 @@ class SlgasReportService:
         _LOGGER.info("正在啟動 Google AI OCR 辨識流程...")
         
         # 1. 準備圖片資料
-        try:
-            import os
-            if not os.path.exists(DEFAULT_IMAGE_PATH):
-                _LOGGER.error(f"找不到圖片檔案: {DEFAULT_IMAGE_PATH}")
-                return None
-                
-            # 讀取圖片並轉換為 base64 (某些服務需要) 或直接傳路徑
-            # 在 HA 官方 Google AI 整合中，我們通常使用 generate_content 服務
-        except Exception as e:
-            _LOGGER.error(f"處理圖片檔案失敗: {e}")
+        import os
+        if not os.path.exists(self.image_path):
+            _LOGGER.error(f"找不到圖片檔案: {self.image_path}")
             return None
 
         # 2. 呼叫 Google Generative AI 服務
-        # 註：這裡假設使用者已安裝官方的 google_generative_ai 整合
         prompt = self.config.get(CONF_PROMPT, DEFAULT_PROMPT)
-        
+
         try:
-            # 使用 HA 的服務呼叫方式
-            # 官方整合通常會註冊在 google_generative_ai domain
-            # 我們傳入圖片路徑讓 AI 讀取
             response = await self.hass.services.async_call(
                 "google_generative_ai_conversation",
                 "generate_content",
                 {
                     "prompt": prompt,
-                    "filenames": [DEFAULT_IMAGE_PATH],
+                    "filenames": [self.image_path],
                 },
                 blocking=True,
                 return_response=True
@@ -298,7 +305,7 @@ class SlgasReportService:
                     "variables": {
                         "message": message,
                         "data": {
-                            "file": DEFAULT_IMAGE_PATH,
+                            "file": self.image_path,
                         },
                     },
                 },
