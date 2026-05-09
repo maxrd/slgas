@@ -50,7 +50,7 @@ class SlgasReportService:
     def image_path(self) -> str:
         """Return per-entry snapshot path to avoid multi-entry file conflicts."""
         cus_no = self.config.get(CONF_CUS_NO, self.entry.entry_id[:8])
-        return f"{DEFAULT_IMAGE_DIR}/slgas_{cus_no}.jpg"
+        return f"{DEFAULT_IMAGE_DIR}/slgas_{cus_no}.png"
 
     @property
     def config(self):
@@ -183,16 +183,36 @@ class SlgasReportService:
             _LOGGER.error(f"找不到圖片檔案: {self.image_path}")
             return None
 
-        # 2. 呼叫 Google Generative AI 服務
+        # 2. 呼叫 AI 任務服務
         prompt = self.config.get(CONF_PROMPT, DEFAULT_PROMPT)
+        filename = os.path.basename(self.image_path)
+        content_type = "image/jpeg" if filename.lower().endswith((".jpg", ".jpeg")) else "image/png"
 
         try:
             response = await self.hass.services.async_call(
-                "google_generative_ai_conversation",
-                "generate_content",
+                "ai_task",
+                "generate_data",
                 {
-                    "prompt": prompt,
-                    "filenames": [self.image_path],
+                    "task_name": "gas ai",
+                    "entity_id": "ai_task.google_ai_task",
+                    "attachments": {
+                        "media_content_id": f"media-source://media_source/local/{filename}",
+                        "media_content_type": content_type,
+                        "metadata": {
+                            "title": filename,
+                            "thumbnail": None,
+                            "media_class": "image",
+                            "children_media_class": None,
+                            "navigateIds": [
+                                {},
+                                {
+                                    "media_content_type": "app",
+                                    "media_content_id": "media-source://media_source"
+                                }
+                            ]
+                        }
+                    },
+                    "instructions": prompt,
                 },
                 blocking=True,
                 return_response=True

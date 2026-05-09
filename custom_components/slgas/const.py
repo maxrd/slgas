@@ -27,5 +27,5 @@ DEFAULT_PROMPT = "這是一張瓦斯表的照片,請提取左邊黑底白色數�
 SERVICE_EXECUTE_REPORT = "execute_report"
 
 # File paths
-DEFAULT_IMAGE_DIR = "/config/www"
-DEFAULT_IMAGE_PATH = "/config/www/slgas.jpg"  # fallback for single-entry compatibility
+DEFAULT_IMAGE_DIR = "/media"
+DEFAULT_IMAGE_PATH = "/media/slgas.png"  # fallback for single-entry compatibility
