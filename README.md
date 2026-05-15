@@ -147,6 +147,7 @@
 | 度數存放實體 | ✅ | 辨識結果寫入此 input_text，供確認與上報 |
 | 排程時間 | ✅ | 每天自動執行時間（例如 `08:00`） |
 | 通知腳本 | 選填 | 回報完成後執行此腳本（推播、Telegram 等） |
+| 通知標題 | 選填 | 通知推送的標題，預設瓦斯為 `🔥 瓦斯度數回報`，水表為 `💧 水錶度數回報` |
 | 歷史天數 | 選填 | 預設 `90` 天，範圍 1～365 天 |
 
 ### 📸 範例：瓦斯配置流程
@@ -268,23 +269,41 @@ content: |
 
 | 變數 | 說明 |
 |------|------|
+| `title` | 通知標題（可在配置中自訂，或使用預設值） |
 | `message` | 包含時間戳與度數的文字 |
-| `data.file` | 截圖路徑 `/config/www/slgas.jpg` |
+| `data.file` | 截圖路徑（例如 `/media/slgas_gas_slgas_012345.png`） |
 
-#### 腳本範例 (手機推播)
+#### 腳本範例 - 瓦斯回報 (手機推播)
 
 ```yaml
 script:
-  slgas_notify:
-    alias: 瓦斯回報通知
+  slgas_notify_gas:
+    alias: 瓦斯度數回報通知
     sequence:
       - service: notify.mobile_app_your_phone
         data:
-          title: "🔥 瓦斯度數回報"
+          title: "{{ title }}"
           message: "{{ message }}"
           data:
             image: "{{ data.file }}"
 ```
+
+#### 腳本範例 - 水錶回報 (手機推播)
+
+```yaml
+script:
+  slgas_notify_water:
+    alias: 水錶度數回報通知
+    sequence:
+      - service: notify.mobile_app_your_phone
+        data:
+          title: "{{ title }}"
+          message: "{{ message }}"
+          data:
+            image: "{{ data.file }}"
+```
+
+> **提示**：兩個腳本結構相同，只是 alias 和通知內容不同。通知標題會從配置中自動傳入，無需硬編碼。
 
 ---
 

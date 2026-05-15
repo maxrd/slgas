@@ -22,6 +22,7 @@ from .const import (
     CONF_TEXT_ENTITY,
     CONF_SCHEDULE_TIME,
     CONF_NOTIFY_SCRIPT,
+    CONF_NOTIFY_TITLE,
     CONF_HISTORY_DAYS,
     CONF_PROMPT,
     CONF_OCR_SOURCE,
@@ -33,6 +34,8 @@ from .const import (
     OCR_SOURCE_GOOGLE_AI,
     OCR_SOURCE_EXTERNAL,
     DEFAULT_HISTORY_DAYS,
+    DEFAULT_NOTIFY_TITLE_GAS,
+    DEFAULT_NOTIFY_TITLE_WATER,
     DEFAULT_PROMPT_GAS,
     DEFAULT_PROMPT_WATER,
 )
@@ -256,6 +259,9 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         config = {**self._user_input}
 
+        # 根據 meter_type 設定預設通知標題
+        default_notify_title = DEFAULT_NOTIFY_TITLE_WATER if self.meter_type == METER_TYPE_WATER else DEFAULT_NOTIFY_TITLE_GAS
+
         return self.async_show_form(
             step_id="advanced",
             data_schema=vol.Schema({
@@ -271,6 +277,10 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_NOTIFY_SCRIPT,
                     default=config.get(CONF_NOTIFY_SCRIPT, "")
                 ): selector.EntitySelector({"domain": "script"}),
+                vol.Optional(
+                    CONF_NOTIFY_TITLE,
+                    default=config.get(CONF_NOTIFY_TITLE, default_notify_title)
+                ): str,
                 vol.Optional(
                     CONF_HISTORY_DAYS,
                     default=config.get(CONF_HISTORY_DAYS, DEFAULT_HISTORY_DAYS)
@@ -351,6 +361,9 @@ class SlgasOptionsFlowHandler(config_entries.OptionsFlow):
                 ): str,
             }
 
+        # 根據 meter_type 設定預設通知標題
+        default_notify_title = DEFAULT_NOTIFY_TITLE_WATER if meter_type == METER_TYPE_WATER else DEFAULT_NOTIFY_TITLE_GAS
+
         schema_dict.update({
             vol.Required(
                 CONF_TEXT_ENTITY,
@@ -364,6 +377,10 @@ class SlgasOptionsFlowHandler(config_entries.OptionsFlow):
                 CONF_NOTIFY_SCRIPT,
                 default=config.get(CONF_NOTIFY_SCRIPT, "")
             ): selector.EntitySelector({"domain": "script"}),
+            vol.Optional(
+                CONF_NOTIFY_TITLE,
+                default=config.get(CONF_NOTIFY_TITLE, default_notify_title)
+            ): str,
             vol.Optional(
                 CONF_HISTORY_DAYS,
                 default=config.get(CONF_HISTORY_DAYS, DEFAULT_HISTORY_DAYS)

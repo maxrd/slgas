@@ -17,6 +17,7 @@ CONF_CAMERA_ENTITY = "camera_entity"
 CONF_TEXT_ENTITY = "text_entity"
 CONF_SCHEDULE_TIME = "schedule_time"
 CONF_NOTIFY_SCRIPT = "notify_script"
+CONF_NOTIFY_TITLE = "notify_title"
 CONF_HISTORY_DAYS = "history_days"
 CONF_PROMPT = "prompt"
 CONF_OCR_SOURCE = "ocr_source"
@@ -40,6 +41,8 @@ OCR_SOURCE_EXTERNAL = "external"
 
 # Defaults
 DEFAULT_HISTORY_DAYS = 90
+DEFAULT_NOTIFY_TITLE_GAS = "🔥 瓦斯度數回報"
+DEFAULT_NOTIFY_TITLE_WATER = "💧 水錶度數回報"
 DEFAULT_PROMPT_GAS = "這是一張瓦斯表的照片,請提取左邊黑底白色數字框中的整數度數,忽略右邊紅色數字框(通常為3位),只回傳數字本身,不要有其他文字。"
 DEFAULT_PROMPT_WATER = "這是一張水錶的照片,請提取黑色數字部分的整數度數,忽略紅色小數部分。只回傳數字本身,不要有其他文字。"
 DEFAULT_PROMPT = DEFAULT_PROMPT_GAS  # backward compatibility

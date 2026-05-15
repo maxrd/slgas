@@ -12,6 +12,7 @@ from .const import (
     CONF_CAMERA_ENTITY,
     CONF_TEXT_ENTITY,
     CONF_NOTIFY_SCRIPT,
+    CONF_NOTIFY_TITLE,
     CONF_HISTORY_DAYS,
     CONF_PROMPT,
     CONF_OCR_SOURCE,
@@ -22,6 +23,8 @@ from .const import (
     OCR_SOURCE_GOOGLE_AI,
     OCR_SOURCE_EXTERNAL,
     DEFAULT_HISTORY_DAYS,
+    DEFAULT_NOTIFY_TITLE_GAS,
+    DEFAULT_NOTIFY_TITLE_WATER,
     DEFAULT_PROMPT,
     DEFAULT_IMAGE_DIR,
     METER_TYPE_GAS,
@@ -296,7 +299,15 @@ class SlgasReportService:
             current_degree = state.state if state else degree
 
             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            message = f"\n{now_str}  目前瓦斯使用度數為:{current_degree}"
+            message = f"\n{now_str}  目前度數為:{current_degree}"
+
+            # Get notification title based on meter type and config
+            if self.meter_type == METER_TYPE_WATER:
+                default_title = DEFAULT_NOTIFY_TITLE_WATER
+            else:
+                default_title = DEFAULT_NOTIFY_TITLE_GAS
+
+            notify_title = self.config.get(CONF_NOTIFY_TITLE, default_title)
 
             # Call the script with message and image file
             await self.hass.services.async_call(
@@ -305,6 +316,7 @@ class SlgasReportService:
                 {
                     "entity_id": script_entity,
                     "variables": {
+                        "title": notify_title,
                         "message": message,
                         "data": {
                             "file": self.image_path,
