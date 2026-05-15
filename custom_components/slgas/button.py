@@ -6,7 +6,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
+from .const import DOMAIN, CONF_METER_TYPE, METER_TYPE_WATER
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -21,29 +21,44 @@ async def async_setup_entry(
     ], True)
 
 class SlgasManualReportButton(ButtonEntity):
-    """Button to manually trigger the full gas report (OCR + Submit)."""
+    """通用上報按鈕 - 支援瓦斯和水錶"""
 
     def __init__(self, report_service, entry):
         self._report_service = report_service
         self._entry = entry
-        self._attr_name = "確認並立即上報瓦斯度數"
+
+        meter_type = entry.data.get(CONF_METER_TYPE, "gas")
+        if meter_type == METER_TYPE_WATER:
+            self._attr_name = "確認並立即上報水錶度數"
+            self._attr_icon = "mdi:water"
+        else:
+            self._attr_name = "確認並立即上報瓦斯度數"
+            self._attr_icon = "mdi:send-check"
+
         self._attr_unique_id = f"{entry.entry_id}_manual_report"
-        self._attr_icon = "mdi:send-check"
 
     async def async_press(self) -> None:
-        """Handle the button press."""
+        """處理按鈕按下事件"""
         await self._report_service.execute_full_workflow(submit=True)
 
+
 class SlgasOcrOnlyButton(ButtonEntity):
-    """Button to manually trigger only the OCR analysis."""
+    """僅分析度數按鈕（不提交）"""
 
     def __init__(self, report_service, entry):
         self._report_service = report_service
         self._entry = entry
-        self._attr_name = "手動分析度數 (不提交)"
+
+        meter_type = entry.data.get(CONF_METER_TYPE, "gas")
+        if meter_type == METER_TYPE_WATER:
+            self._attr_name = "手動分析水錶度數 (不提交)"
+            self._attr_icon = "mdi:camera-retake"
+        else:
+            self._attr_name = "手動分析度數 (不提交)"
+            self._attr_icon = "mdi:camera-retake"
+
         self._attr_unique_id = f"{entry.entry_id}_ocr_only"
-        self._attr_icon = "mdi:camera-retake"
 
     async def async_press(self) -> None:
-        """Handle the button press."""
+        """處理按鈕按下事件"""
         await self._report_service.execute_full_workflow(submit=False)

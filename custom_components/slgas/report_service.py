@@ -2,8 +2,6 @@
 import logging
 import re
 import asyncio
-import aiohttp
-from bs4 import BeautifulSoup
 from datetime import datetime
 
 from homeassistant.core import HomeAssistant
@@ -11,8 +9,6 @@ from homeassistant.config_entries import ConfigEntry
 
 from .const import (
     CONF_CUS_NO,
-    CONF_CUS_NAME,
-    CONF_CUS_PHONE,
     CONF_CAMERA_ENTITY,
     CONF_TEXT_ENTITY,
     CONF_NOTIFY_SCRIPT,
@@ -20,12 +16,19 @@ from .const import (
     CONF_PROMPT,
     CONF_OCR_SOURCE,
     CONF_DEGREE_ENTITY,
+    CONF_METER_TYPE,
+    CONF_COMPANY,
+    CONF_WATER_NO,
     OCR_SOURCE_GOOGLE_AI,
     OCR_SOURCE_EXTERNAL,
     DEFAULT_HISTORY_DAYS,
     DEFAULT_PROMPT,
     DEFAULT_IMAGE_DIR,
+    METER_TYPE_GAS,
+    METER_TYPE_WATER,
+    COMPANY_SLGAS,
 )
+from .reporters.factory import ReporterFactory
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,6 +43,29 @@ class SlgasReportService:
         self.meter_sensor = None   # 由 sensor.py 設定引用
         self.status_sensor = None  # 由 sensor.py 設定引用
 
+        # 初始化 Reporter（支持多公司）
+        self.meter_type = entry.data.get(CONF_METER_TYPE, METER_TYPE_GAS)
+        self.company = entry.data.get(CONF_COMPANY, COMPANY_SLGAS)
+        self.reporter = self._init_reporter()
+
+    def _init_reporter(self):
+        """根據公司初始化 Reporter"""
+        try:
+            config_with_image_path = {
+                **self.config,
+                "image_path": self.image_path
+            }
+            reporter = ReporterFactory.get_reporter(
+                self.hass,
+                self.company,
+                config_with_image_path
+            )
+            _LOGGER.info(f"已初始化 {self.company} Reporter")
+            return reporter
+        except ValueError as e:
+            _LOGGER.error(f"無法初始化 Reporter: {e}")
+            raise
+
     def _update_status(self, msg: str) -> None:
         """Update last_status and push state to HA immediately."""
         self.last_status = msg
@@ -48,9 +74,18 @@ class SlgasReportService:
 
     @property
     def image_path(self) -> str:
-        """Return per-entry snapshot path to avoid multi-entry file conflicts."""
-        cus_no = self.config.get(CONF_CUS_NO, self.entry.entry_id[:8])
-        return f"{DEFAULT_IMAGE_DIR}/slgas_{cus_no}.png"
+        """Return per-entry snapshot path based on meter_type and company."""
+        if self.meter_type == METER_TYPE_WATER:
+            # 水錶: slgas_water_<water_no>.png
+            water_no = self.config.get(CONF_WATER_NO, self.entry.entry_id[:8])
+            water_no_clean = water_no.replace("-", "")  # 移除格式符號
+            filename = f"slgas_water_{water_no_clean}.png"
+        else:
+            # 瓦斯: slgas_gas_<company>_<cus_no>.png
+            cus_no = self.config.get(CONF_CUS_NO, self.entry.entry_id[:8])
+            filename = f"slgas_gas_{self.company}_{cus_no}.png"
+
+        return f"{DEFAULT_IMAGE_DIR}/{filename}"
 
     @property
     def config(self):
@@ -176,7 +211,7 @@ class SlgasReportService:
     async def _perform_ocr(self):
         """Call Google AI OCR service to recognize degree."""
         _LOGGER.info("正在啟動 Google AI OCR 辨識流程...")
-        
+
         # 1. 準備圖片資料
         import os
         if not os.path.exists(self.image_path):
@@ -242,63 +277,10 @@ class SlgasReportService:
             return None
 
     async def _submit_to_slgas(self, degree):
-        """The two-step POST logic."""
-        url = "https://www.slgas.com.tw/GetDegree_SQL.asp"
-        headers = {
-            "Content-Type": "application/x-www-form-urlencoded",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        }
-        
-        async with aiohttp.ClientSession(headers=headers) as session:
-            # Step 1: POST for validation (ChkField=Check)
-            payload1 = {
-                "CusNo": self.config.get(CONF_CUS_NO, ""),
-                "CusName": (self.config.get(CONF_CUS_NAME) or "").encode("big5"),
-                "Cuscallno": self.config.get(CONF_CUS_PHONE, ""),
-                "ChkField": "Check",
-                "Send": "送出".encode("big5")
-            }
-            
-            async with session.post(url, data=payload1) as resp1:
-                if resp1.status != 200:
-                    _LOGGER.error(f"Step 1 POST failed: {resp1.status}")
-                    return False
-                
-                html1 = await resp1.text(encoding="big5", errors="ignore")
-                soup = BeautifulSoup(html1, "html.parser")
-                
-                # Step 2: Prepare second POST (ChkField=Append)
-                # Extract hidden fields or default values from Step 1 response
-                payload2 = {
-                    "CusTel": self._get_input_value(soup, "CusTel"),
-                    "CusEMail": self._get_input_value(soup, "CusEMail"),
-                    "cus_sDegree": self._get_input_value(soup, "cus_sDegree"),
-                    "cus_sLOG_DAY": self._get_input_value(soup, "cus_sLOG_DAY"),
-                    "cus_sLOG_DEG0": self._get_input_value(soup, "cus_sLOG_DEG0"),
-                    "CusDegree": str(degree),
-                    "ChkField": "Append",
-                    "send": "送出".encode("big5")
-                }
-                
-                async with session.post(url, data=payload2) as resp2:
-                    if resp2.status != 200:
-                        _LOGGER.error(f"Step 2 POST failed: {resp2.status}")
-                        return False
-                    
-                    html2 = await resp2.text(encoding="big5", errors="ignore")
-                    
-                    # Check for success message
-                    if "瓦斯錶度數已登錄完成" in html2:
-                        _LOGGER.info("瓦斯度數上報成功！")
-                        return True
-                    else:
-                        _LOGGER.warning("網站未顯示成功訊息，請檢查回傳內容。")
-                        return False
-
-    def _get_input_value(self, soup, name):
-        """Extract value from input field by name."""
-        tag = soup.find("input", {"name": name})
-        return tag.get("value", "") if tag else ""
+        """使用 Reporter 上報度數 (支援多公司)"""
+        success = await self.reporter.submit(degree, self.image_path)
+        self.last_status = self.reporter.last_status
+        return success
 
     async def _send_notification(self, degree):
         """Call the user-configured HA script for notification."""

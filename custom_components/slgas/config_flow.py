@@ -1,17 +1,23 @@
 """Config flow for slgas integration."""
 from __future__ import annotations
 
+import re
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.helpers import selector
-import homeassistant.helpers.config_validation as cv
 
 from .const import (
     DOMAIN,
+    CONF_METER_TYPE,
+    CONF_COMPANY,
     CONF_CUS_NO,
     CONF_CUS_NAME,
     CONF_CUS_PHONE,
+    CONF_WATER_NO,
+    CONF_APPLICANT_NAME,
+    CONF_EMAIL,
+    CONF_PHONE,
     CONF_CAMERA_ENTITY,
     CONF_TEXT_ENTITY,
     CONF_SCHEDULE_TIME,
@@ -20,104 +26,146 @@ from .const import (
     CONF_PROMPT,
     CONF_OCR_SOURCE,
     CONF_DEGREE_ENTITY,
+    METER_TYPE_GAS,
+    METER_TYPE_WATER,
+    COMPANY_SLGAS,
+    COMPANY_WATER_TAIPEI,
     OCR_SOURCE_GOOGLE_AI,
     OCR_SOURCE_EXTERNAL,
     DEFAULT_HISTORY_DAYS,
-    DEFAULT_PROMPT,
+    DEFAULT_PROMPT_GAS,
+    DEFAULT_PROMPT_WATER,
 )
-
-OCR_SOURCE_OPTIONS = [
-    selector.SelectOptionDict(value=OCR_SOURCE_GOOGLE_AI, label="Google AI (攝影機 + AI 辨識)"),
-    selector.SelectOptionDict(value=OCR_SOURCE_EXTERNAL, label="外部實體 (input_text / sensor)"),
-]
-
-
-def _build_setup_schema(ocr_source: str, defaults: dict | None = None) -> vol.Schema:
-    """Build the setup step schema based on OCR source selection."""
-    defaults = defaults or {}
-    schema = {}
-
-    if ocr_source == OCR_SOURCE_GOOGLE_AI:
-        # Google AI 模式：攝影機必填，prompt 必填
-        schema[vol.Required(
-            CONF_CAMERA_ENTITY, default=defaults.get(CONF_CAMERA_ENTITY, "")
-        )] = selector.EntitySelector({"domain": "camera"})
-        schema[vol.Required(
-            CONF_PROMPT, default=defaults.get(CONF_PROMPT, DEFAULT_PROMPT)
-        )] = selector.TextSelector({"multiline": True})
-    else:
-        # 外部實體模式：degree_entity 必填
-        schema[vol.Required(
-            CONF_DEGREE_ENTITY, default=defaults.get(CONF_DEGREE_ENTITY, "")
-        )] = selector.EntitySelector({"domain": ["input_text", "sensor"]})
-
-    # 共用欄位
-    schema[vol.Required(
-        CONF_TEXT_ENTITY, default=defaults.get(CONF_TEXT_ENTITY, "")
-    )] = selector.EntitySelector({"domain": "input_text"})
-    schema[vol.Required(
-        CONF_SCHEDULE_TIME, default=defaults.get(CONF_SCHEDULE_TIME, "08:00:00")
-    )] = selector.TimeSelector()
-    schema[vol.Optional(
-        CONF_NOTIFY_SCRIPT,
-        description={"suggested_value": defaults.get(CONF_NOTIFY_SCRIPT)},
-    )] = selector.EntitySelector({"domain": "script"})
-    schema[vol.Optional(
-        CONF_HISTORY_DAYS,
-        description={"suggested_value": defaults.get(CONF_HISTORY_DAYS, DEFAULT_HISTORY_DAYS)},
-    )] = selector.NumberSelector({"min": 1, "max": 365, "step": 1, "mode": "box"})
-
-    return vol.Schema(schema)
 
 
 class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for slgas."""
+    """SLGAS 整合設定流 - 支援瓦斯和水錶"""
 
     VERSION = 1
 
     def __init__(self):
-        """Initialize the config flow."""
+        """初始化設定流"""
         self._user_input: dict = {}
+        self.meter_type: str | None = None
+        self.company: str | None = None
 
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
-        """Get the options flow for this handler."""
+        """取得此處理器的選項流"""
         return SlgasOptionsFlowHandler()
 
     async def async_step_user(self, user_input=None):
-        """Handle step 1: basic info + OCR source selection."""
+        """步驟 1: 選擇類型 (瓦斯/水)"""
         errors = {}
 
         if user_input is not None:
-            # 儲存第一步資料，進入第二步
-            self._user_input = user_input
-            return await self.async_step_setup()
-
-        data_schema = vol.Schema({
-            vol.Required(CONF_CUS_NO): str,
-            vol.Required(CONF_CUS_NAME): str,
-            vol.Required(CONF_CUS_PHONE): str,
-            vol.Required(CONF_OCR_SOURCE, default=OCR_SOURCE_GOOGLE_AI): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=OCR_SOURCE_OPTIONS,
-                    mode=selector.SelectSelectorMode.DROPDOWN,
-                )
-            ),
-        })
+            self.meter_type = user_input.get(CONF_METER_TYPE)
+            self._user_input[CONF_METER_TYPE] = self.meter_type
+            return await self.async_step_company()
 
         return self.async_show_form(
             step_id="user",
-            data_schema=data_schema,
+            data_schema=vol.Schema({
+                vol.Required(CONF_METER_TYPE): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[
+                            selector.SelectOptionDict(value=METER_TYPE_GAS, label="⛽ 瓦斯"),
+                            selector.SelectOptionDict(value=METER_TYPE_WATER, label="💧 水錶"),
+                        ],
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+            }),
             errors=errors,
+            description_placeholders={"step_count": "6"},
         )
 
-    async def async_step_setup(self, user_input=None):
-        """Handle step 2: source-specific settings."""
+    async def async_step_company(self, user_input=None):
+        """步驟 2: 選擇公司 (根據類型動態過濾)"""
         errors = {}
 
         if user_input is not None:
-            ocr_source = self._user_input.get(CONF_OCR_SOURCE, OCR_SOURCE_GOOGLE_AI)
+            self.company = user_input.get(CONF_COMPANY)
+            self._user_input[CONF_COMPANY] = self.company
+            return await self.async_step_basic_info()
+
+        # 根據 meter_type 過濾公司清單
+        if self.meter_type == METER_TYPE_WATER:
+            companies = {
+                COMPANY_WATER_TAIPEI: "台灣自來水",
+            }
+        else:  # GAS
+            companies = {
+                COMPANY_SLGAS: "欣隆天然瓦斯",
+            }
+
+        return self.async_show_form(
+            step_id="company",
+            data_schema=vol.Schema({
+                vol.Required(CONF_COMPANY): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[
+                            selector.SelectOptionDict(value=k, label=v)
+                            for k, v in companies.items()
+                        ],
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+            }),
+            errors=errors,
+        )
+
+    async def async_step_basic_info(self, user_input=None):
+        """步驟 3: 基本資訊 (動態欄位)"""
+        errors = {}
+
+        if user_input is not None:
+            # 驗證欄位
+            if self.company == COMPANY_WATER_TAIPEI:
+                # 驗證水號格式 (XXX-XXX)
+                water_no = user_input.get(CONF_WATER_NO, "")
+                if water_no and not re.match(r"^\d{1,3}-\d{1,3}$", water_no):
+                    errors[CONF_WATER_NO] = "invalid_water_no_format"
+                # 驗證電郵格式
+                email = user_input.get(CONF_EMAIL, "")
+                if email and email.strip():
+                    if not re.match(r"^[^@]+@[^@]+\.[^@]+$", email):
+                        errors[CONF_EMAIL] = "invalid_email"
+
+            if not errors:
+                self._user_input.update(user_input)
+                return await self.async_step_ocr_config()
+
+        # 根據公司動態生成欄位
+        schema_dict = {}
+
+        if self.company == COMPANY_WATER_TAIPEI:
+            schema_dict = {
+                vol.Required(CONF_APPLICANT_NAME): str,
+                vol.Required(CONF_WATER_NO): str,
+                vol.Required(CONF_PHONE): str,
+                vol.Required(CONF_EMAIL): str,
+            }
+        else:  # SLGAS
+            schema_dict = {
+                vol.Required(CONF_CUS_NO): str,
+                vol.Required(CONF_CUS_NAME): str,
+                vol.Required(CONF_CUS_PHONE): str,
+            }
+
+        return self.async_show_form(
+            step_id="basic_info",
+            data_schema=vol.Schema(schema_dict),
+            errors=errors,
+        )
+
+    async def async_step_ocr_config(self, user_input=None):
+        """步驟 4: OCR 設定 (攝影機 + 提示詞)"""
+        errors = {}
+
+        if user_input is not None:
+            ocr_source = user_input.get(CONF_OCR_SOURCE, OCR_SOURCE_GOOGLE_AI)
 
             # 驗證必填欄位
             if ocr_source == OCR_SOURCE_GOOGLE_AI:
@@ -128,94 +176,207 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     errors[CONF_DEGREE_ENTITY] = "degree_entity_required"
 
             if not errors:
-                # 合併兩步資料
-                full_data = {**self._user_input, **user_input}
+                self._user_input.update(user_input)
+                return await self.async_step_advanced()
 
-                await self.async_set_unique_id(full_data[CONF_CUS_NO])
-                self._abort_if_unique_id_configured()
-
-                return self.async_create_entry(
-                    title=f"瓦斯自動回報 ({full_data[CONF_CUS_NO]})",
-                    data=full_data,
-                )
+        # 根據 meter_type 推薦 prompt
+        if self.meter_type == METER_TYPE_WATER:
+            default_prompt = DEFAULT_PROMPT_WATER
+        else:
+            default_prompt = DEFAULT_PROMPT_GAS
 
         ocr_source = self._user_input.get(CONF_OCR_SOURCE, OCR_SOURCE_GOOGLE_AI)
-        data_schema = _build_setup_schema(ocr_source)
+
+        # 根據現有的 ocr_source 選擇顯示不同的欄位
+        schema_dict = {
+            vol.Required(
+                CONF_OCR_SOURCE, default=ocr_source
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        selector.SelectOptionDict(
+                            value=OCR_SOURCE_GOOGLE_AI,
+                            label="Google AI (攝影機 + AI 辨識)"
+                        ),
+                        selector.SelectOptionDict(
+                            value=OCR_SOURCE_EXTERNAL,
+                            label="外部實體 (input_text / sensor)"
+                        ),
+                    ],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            )
+        }
+
+        if ocr_source == OCR_SOURCE_GOOGLE_AI:
+            schema_dict[vol.Required(
+                CONF_CAMERA_ENTITY,
+                default=self._user_input.get(CONF_CAMERA_ENTITY, "")
+            )] = selector.EntitySelector({"domain": "camera"})
+            schema_dict[vol.Required(
+                CONF_PROMPT,
+                default=self._user_input.get(CONF_PROMPT, default_prompt)
+            )] = selector.TextSelector({"multiline": True})
+        else:
+            schema_dict[vol.Required(
+                CONF_DEGREE_ENTITY,
+                default=self._user_input.get(CONF_DEGREE_ENTITY, "")
+            )] = selector.EntitySelector(
+                {"domain": ["input_text", "sensor"]}
+            )
 
         return self.async_show_form(
-            step_id="setup",
-            data_schema=data_schema,
+            step_id="ocr_config",
+            data_schema=vol.Schema(schema_dict),
+            errors=errors,
+        )
+
+    async def async_step_advanced(self, user_input=None):
+        """步驟 6: 進階選項"""
+        errors = {}
+
+        if user_input is not None:
+            full_data = {**self._user_input, **user_input}
+
+            # 設定唯一 ID
+            if self.meter_type == METER_TYPE_WATER:
+                unique_id = full_data.get(CONF_WATER_NO, "water")
+                title = f"💧 水錶 ({unique_id})"
+            else:
+                unique_id = full_data.get(CONF_CUS_NO, "gas")
+                title = f"⛽ 瓦斯 ({unique_id})"
+
+            await self.async_set_unique_id(unique_id)
+            self._abort_if_unique_id_configured()
+
+            return self.async_create_entry(
+                title=title,
+                data=full_data,
+            )
+
+        config = {**self._user_input}
+
+        return self.async_show_form(
+            step_id="advanced",
+            data_schema=vol.Schema({
+                vol.Required(
+                    CONF_TEXT_ENTITY,
+                    default=config.get(CONF_TEXT_ENTITY, "")
+                ): selector.EntitySelector({"domain": "input_text"}),
+                vol.Required(
+                    CONF_SCHEDULE_TIME,
+                    default=config.get(CONF_SCHEDULE_TIME, "08:00:00")
+                ): selector.TimeSelector(),
+                vol.Optional(
+                    CONF_NOTIFY_SCRIPT,
+                    default=config.get(CONF_NOTIFY_SCRIPT, "")
+                ): selector.EntitySelector({"domain": "script"}),
+                vol.Optional(
+                    CONF_HISTORY_DAYS,
+                    default=config.get(CONF_HISTORY_DAYS, DEFAULT_HISTORY_DAYS)
+                ): selector.NumberSelector({
+                    "min": 1,
+                    "max": 365,
+                    "step": 1,
+                    "mode": "box"
+                }),
+            }),
             errors=errors,
         )
 
 
 class SlgasOptionsFlowHandler(config_entries.OptionsFlow):
-    """Handle options flow for slgas."""
+    """處理選項流程"""
 
     def __init__(self):
-        """Initialize options flow."""
+        """初始化選項流"""
         self._user_input: dict = {}
 
     async def async_step_init(self, user_input=None):
-        """Handle step 1: basic info + OCR source selection."""
+        """初始選項步驟"""
         errors = {}
         config = {**self.config_entry.data, **self.config_entry.options}
 
         if user_input is not None:
-            self._user_input = user_input
-            return await self.async_step_setup()
+            meter_type = config.get(CONF_METER_TYPE, METER_TYPE_GAS)
+            company = config.get(CONF_COMPANY, COMPANY_SLGAS)
 
-        schema = vol.Schema({
+            # 驗證欄位
+            if meter_type == METER_TYPE_WATER and company == COMPANY_WATER_TAIPEI:
+                email = user_input.get(CONF_EMAIL, "")
+                if email and email.strip():
+                    if not re.match(r"^[^@]+@[^@]+\.[^@]+$", email):
+                        errors[CONF_EMAIL] = "invalid_email"
+
+            if not errors:
+                return self.async_create_entry(title="", data=user_input)
+
+        meter_type = config.get(CONF_METER_TYPE, METER_TYPE_GAS)
+
+        # 根據 meter_type 顯示不同的欄位
+        schema_dict = {}
+
+        if meter_type == METER_TYPE_WATER:
+            schema_dict = {
+                vol.Required(
+                    CONF_APPLICANT_NAME,
+                    default=config.get(CONF_APPLICANT_NAME, "")
+                ): str,
+                vol.Required(
+                    CONF_WATER_NO,
+                    default=config.get(CONF_WATER_NO, "")
+                ): str,
+                vol.Required(
+                    CONF_PHONE,
+                    default=config.get(CONF_PHONE, "")
+                ): str,
+                vol.Required(
+                    CONF_EMAIL,
+                    default=config.get(CONF_EMAIL, "")
+                ): str,
+            }
+        else:  # GAS
+            schema_dict = {
+                vol.Required(
+                    CONF_CUS_NO,
+                    default=config.get(CONF_CUS_NO, "")
+                ): str,
+                vol.Required(
+                    CONF_CUS_NAME,
+                    default=config.get(CONF_CUS_NAME, "")
+                ): str,
+                vol.Required(
+                    CONF_CUS_PHONE,
+                    default=config.get(CONF_CUS_PHONE, "")
+                ): str,
+            }
+
+        schema_dict.update({
             vol.Required(
-                CONF_CUS_NO, default=config.get(CONF_CUS_NO, "")
-            ): str,
+                CONF_TEXT_ENTITY,
+                default=config.get(CONF_TEXT_ENTITY, "")
+            ): selector.EntitySelector({"domain": "input_text"}),
             vol.Required(
-                CONF_CUS_NAME, default=config.get(CONF_CUS_NAME, "")
-            ): str,
-            vol.Required(
-                CONF_CUS_PHONE, default=config.get(CONF_CUS_PHONE, "")
-            ): str,
-            vol.Required(
-                CONF_OCR_SOURCE, default=config.get(CONF_OCR_SOURCE, OCR_SOURCE_GOOGLE_AI)
-            ): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=OCR_SOURCE_OPTIONS,
-                    mode=selector.SelectSelectorMode.DROPDOWN,
-                )
-            ),
+                CONF_SCHEDULE_TIME,
+                default=config.get(CONF_SCHEDULE_TIME, "08:00:00")
+            ): selector.TimeSelector(),
+            vol.Optional(
+                CONF_NOTIFY_SCRIPT,
+                default=config.get(CONF_NOTIFY_SCRIPT, "")
+            ): selector.EntitySelector({"domain": "script"}),
+            vol.Optional(
+                CONF_HISTORY_DAYS,
+                default=config.get(CONF_HISTORY_DAYS, DEFAULT_HISTORY_DAYS)
+            ): selector.NumberSelector({
+                "min": 1,
+                "max": 365,
+                "step": 1,
+                "mode": "box"
+            }),
         })
 
         return self.async_show_form(
             step_id="init",
-            data_schema=schema,
-            errors=errors,
-        )
-
-    async def async_step_setup(self, user_input=None):
-        """Handle step 2: source-specific settings."""
-        errors = {}
-        config = {**self.config_entry.data, **self.config_entry.options}
-
-        if user_input is not None:
-            ocr_source = self._user_input.get(CONF_OCR_SOURCE, OCR_SOURCE_GOOGLE_AI)
-
-            # 驗證必填欄位
-            if ocr_source == OCR_SOURCE_GOOGLE_AI:
-                if not user_input.get(CONF_CAMERA_ENTITY):
-                    errors[CONF_CAMERA_ENTITY] = "camera_required"
-            else:
-                if not user_input.get(CONF_DEGREE_ENTITY):
-                    errors[CONF_DEGREE_ENTITY] = "degree_entity_required"
-
-            if not errors:
-                full_data = {**self._user_input, **user_input}
-                return self.async_create_entry(title="", data=full_data)
-
-        ocr_source = self._user_input.get(CONF_OCR_SOURCE, OCR_SOURCE_GOOGLE_AI)
-        data_schema = _build_setup_schema(ocr_source, defaults=config)
-
-        return self.async_show_form(
-            step_id="setup",
-            data_schema=data_schema,
+            data_schema=vol.Schema(schema_dict),
             errors=errors,
         )

@@ -14,7 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
-from .const import DOMAIN
+from .const import DOMAIN, CONF_METER_TYPE, METER_TYPE_WATER, METER_TYPE_GAS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,7 +27,8 @@ async def async_setup_entry(
     """Set up the slgas sensors."""
     report_service = hass.data[DOMAIN][entry.entry_id]
 
-    meter_sensor = SlgasMeterSensor(report_service, entry)
+    meter_type = entry.data.get(CONF_METER_TYPE, "gas")
+    meter_sensor = UniversalMeterSensor(report_service, entry, meter_type)
     status_sensor = SlgasReportSensor(report_service, entry)
 
     # 將感測器引用存入 report_service，以便流程中主動推送狀態
@@ -37,55 +38,85 @@ async def async_setup_entry(
     async_add_entities([meter_sensor, status_sensor], True)
 
 
-class SlgasMeterSensor(SensorEntity, RestoreEntity):
-    """Sensor to track the gas meter reading (supports Energy Dashboard)."""
+class UniversalMeterSensor(SensorEntity, RestoreEntity):
+    """通用度數感應器 - 支援瓦斯和水錶 (能源面板支援)"""
 
-    def __init__(self, report_service, entry):
+    def __init__(self, report_service, entry, meter_type="gas"):
         self._report_service = report_service
         self._entry = entry
-        cus_no = entry.data.get("cus_no", "")
-        self._attr_name = f"瓦斯度數 ({cus_no})"
+        self._meter_type = meter_type
+
+        # 根據 meter_type 設定名稱和圖示
+        if meter_type == METER_TYPE_WATER:
+            water_no = entry.data.get("water_no", "")
+            self._attr_name = f"水錶度數 ({water_no})"
+            self._attr_icon = "mdi:water"
+            self._attr_device_class = SensorDeviceClass.WATER
+        elif meter_type == METER_TYPE_GAS:
+            cus_no = entry.data.get("cus_no", "")
+            self._attr_name = f"瓦斯度數 ({cus_no})"
+            self._attr_icon = "mdi:counter"
+            self._attr_device_class = SensorDeviceClass.GAS
+        else:
+            self._attr_name = f"度數 ({entry.entry_id[:8]})"
+            self._attr_icon = "mdi:counter"
+            self._attr_device_class = SensorDeviceClass.GAS
+
         self._attr_unique_id = f"{entry.entry_id}_meter"
-        self._attr_icon = "mdi:counter"
-        self._attr_device_class = SensorDeviceClass.GAS
         self._attr_state_class = SensorStateClass.TOTAL_INCREASING
         self._attr_native_unit_of_measurement = UnitOfVolume.CUBIC_METERS
         self._attr_native_value = None
 
     async def async_added_to_hass(self):
-        """Restore last known state on startup."""
+        """啟動時恢復上次狀態"""
         await super().async_added_to_hass()
         last_state = await self.async_get_last_state()
         if last_state and last_state.state not in ("unknown", "unavailable", None):
             try:
                 self._attr_native_value = int(last_state.state)
+                meter_type_str = "水錶" if self._meter_type == METER_TYPE_WATER else "瓦斯"
                 _LOGGER.info(
-                    "已恢復瓦斯度數感測器上次狀態: %s", last_state.state
+                    f"已恢復{meter_type_str}度數感測器上次狀態: {last_state.state}"
                 )
             except (ValueError, TypeError):
                 _LOGGER.warning(
-                    "無法恢復瓦斯度數感測器狀態: %s", last_state.state
+                    f"無法恢復度數感測器狀態: {last_state.state}"
                 )
 
     def update_meter(self, degree: int):
-        """Update the meter reading and trigger state write."""
+        """由 report_service 呼叫更新度數"""
         self._attr_native_value = degree
         self.async_write_ha_state()
 
     async def async_update(self):
-        """Update is handled via report_service, no polling needed."""
+        """更新由 report_service 處理，無需輪詢"""
         pass
 
 
+# 向後相容性別名
+SlgasMeterSensor = UniversalMeterSensor
+
+
 class SlgasReportSensor(SensorEntity):
-    """Sensor to track the last reporting status."""
+    """感應器追蹤最後回報狀態"""
 
     def __init__(self, report_service, entry):
         self._report_service = report_service
         self._entry = entry
-        self._attr_name = f"瓦斯回報狀態 ({entry.data.get('cus_no')})"
+        meter_type = entry.data.get("meter_type", "gas")
+
+        if meter_type == METER_TYPE_WATER:
+            water_no = entry.data.get("water_no", "")
+            status_name = f"水錶回報狀態 ({water_no})"
+            icon = "mdi:water"
+        else:
+            cus_no = entry.data.get("cus_no", "")
+            status_name = f"瓦斯回報狀態 ({cus_no})"
+            icon = "mdi:gas-burner"
+
+        self._attr_name = status_name
         self._attr_unique_id = f"{entry.entry_id}_status"
-        self._attr_icon = "mdi:gas-burner"
+        self._attr_icon = icon
 
     @property
     def native_value(self):

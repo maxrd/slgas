@@ -2,66 +2,85 @@
   "config": {
     "step": {
       "user": {
-        "title": "Configure SLGAS Auto Report",
-        "description": "Step 1: Enter basic customer information and select reading source.",
+        "title": "選擇類型",
+        "description": "第 1/6 步：請選擇要配置的類型",
         "data": {
-          "cus_no": "Customer Number (CusNo)",
-          "cus_name": "Customer Name (CusName)",
-          "cus_phone": "Phone Number (Cuscallno)",
-          "ocr_source": "Degree Source"
+          "meter_type": "類型"
         }
       },
-      "setup": {
-        "title": "Configure SLGAS - Source Settings",
-        "description": "Step 2: Configure settings based on your selected reading source.",
+      "company": {
+        "title": "選擇公司",
+        "description": "第 2/6 步：請選擇對應的公司或服務提供商",
         "data": {
-          "camera_entity": "Camera (for Google AI mode)",
-          "degree_entity": "Degree Source Entity (input_text or sensor)",
-          "text_entity": "Degree Storage Entity (input_text)",
-          "schedule_time": "Daily Schedule Time",
-          "notify_script": "Notification Script (optional)",
-          "history_days": "History Retention (days)",
-          "prompt": "Google AI OCR Prompt"
+          "company": "公司"
+        }
+      },
+      "basic_info": {
+        "title": "基本資訊",
+        "description": "第 3/6 步：請填入必要的帳戶資訊",
+        "data": {
+          "cus_no": "客戶號",
+          "cus_name": "客戶名稱",
+          "cus_phone": "聯繫電話",
+          "applicant_name": "申請人名稱",
+          "water_no": "水號 (格式: XXX-XXX)",
+          "phone": "聯繫電話",
+          "email": "電子郵件"
+        }
+      },
+      "ocr_config": {
+        "title": "OCR 設定",
+        "description": "第 4/6 步：設定度數辨識方式",
+        "data": {
+          "ocr_source": "辨識來源",
+          "camera_entity": "攝影機實體 (Google AI 模式)",
+          "degree_entity": "度數實體 (外部實體模式)",
+          "prompt": "AI 提示詞"
+        }
+      },
+      "advanced": {
+        "title": "進階選項",
+        "description": "第 5/6 步：設定通知和排程 (選填)",
+        "data": {
+          "text_entity": "度數儲存實體 (input_text)",
+          "schedule_time": "每日排程時間",
+          "notify_script": "通知腳本 (選填)",
+          "history_days": "歷史保留天數"
         }
       }
     },
     "error": {
-      "camera_required": "Camera entity is required for Google AI mode.",
-      "degree_entity_required": "Degree entity is required for External mode."
+      "camera_required": "Google AI 模式需要選擇攝影機實體",
+      "degree_entity_required": "外部實體模式需要選擇度數實體",
+      "invalid_water_no_format": "水號格式應為 XXX-XXX (例: 123-456)",
+      "invalid_email": "電郵格式不正確"
     },
     "abort": {
-      "already_configured": "This customer number is already configured."
+      "already_configured": "此帳戶已配置"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Configure SLGAS Auto Report",
-        "description": "Step 1: Modify basic settings and reading source.",
+        "title": "更新設定",
+        "description": "修改帳戶和辨識設定",
         "data": {
-          "cus_no": "Customer Number (CusNo)",
-          "cus_name": "Customer Name (CusName)",
-          "cus_phone": "Phone Number (Cuscallno)",
-          "ocr_source": "Degree Source"
-        }
-      },
-      "setup": {
-        "title": "Configure SLGAS - Source Settings",
-        "description": "Step 2: Modify settings based on your selected reading source.",
-        "data": {
-          "camera_entity": "Camera (for Google AI mode)",
-          "degree_entity": "Degree Source Entity (input_text or sensor)",
-          "text_entity": "Degree Storage Entity (input_text)",
-          "schedule_time": "Daily Schedule Time",
-          "notify_script": "Notification Script (optional)",
-          "history_days": "History Retention (days)",
-          "prompt": "Google AI OCR Prompt"
+          "cus_no": "客戶號",
+          "cus_name": "客戶名稱",
+          "cus_phone": "聯繫電話",
+          "applicant_name": "申請人名稱",
+          "water_no": "水號",
+          "phone": "聯繫電話",
+          "email": "電子郵件",
+          "text_entity": "度數儲存實體",
+          "schedule_time": "每日排程時間",
+          "notify_script": "通知腳本",
+          "history_days": "歷史保留天數"
         }
       }
     },
     "error": {
-      "camera_required": "Camera entity is required for Google AI mode.",
-      "degree_entity_required": "Degree entity is required for External mode."
+      "invalid_email": "電郵格式不正確"
     }
   }
 }

@@ -2,10 +2,17 @@
 
 DOMAIN = "slgas"
 
-# Configuration keys
-CONF_CUS_NO = "cus_no"
-CONF_CUS_NAME = "cus_name"
-CONF_CUS_PHONE = "cus_phone"
+# Meter types
+METER_TYPE_GAS = "gas"
+METER_TYPE_WATER = "water"
+
+# Companies
+COMPANY_SLGAS = "slgas"
+COMPANY_WATER_TAIPEI = "water_taipei"
+
+# Configuration keys - Common
+CONF_METER_TYPE = "meter_type"
+CONF_COMPANY = "company"
 CONF_CAMERA_ENTITY = "camera_entity"
 CONF_TEXT_ENTITY = "text_entity"
 CONF_SCHEDULE_TIME = "schedule_time"
@@ -15,13 +22,27 @@ CONF_PROMPT = "prompt"
 CONF_OCR_SOURCE = "ocr_source"
 CONF_DEGREE_ENTITY = "degree_entity"
 
+# Configuration keys - Gas (SLGAS)
+CONF_CUS_NO = "cus_no"
+CONF_CUS_NAME = "cus_name"
+CONF_CUS_PHONE = "cus_phone"
+
+# Configuration keys - Water (Taiwan Water)
+CONF_WATER_NO = "water_no"
+CONF_APPLICANT_NAME = "applicant_name"
+CONF_EMAIL = "email"
+CONF_PHONE = "phone"
+CONF_CAPTCHA_CODE = "captcha_code"
+
 # OCR source options
 OCR_SOURCE_GOOGLE_AI = "google_ai"
 OCR_SOURCE_EXTERNAL = "external"
 
 # Defaults
 DEFAULT_HISTORY_DAYS = 90
-DEFAULT_PROMPT = "這是一張瓦斯表的照片,請提取左邊黑底白色數字框中的整數度數,忽略右邊紅色數字框(通常為3位),只回傳數字本身,不要有其他文字。"
+DEFAULT_PROMPT_GAS = "這是一張瓦斯表的照片,請提取左邊黑底白色數字框中的整數度數,忽略右邊紅色數字框(通常為3位),只回傳數字本身,不要有其他文字。"
+DEFAULT_PROMPT_WATER = "這是一張水錶的照片,請提取黑色數字部分的整數度數,忽略紅色小數部分。只回傳數字本身,不要有其他文字。"
+DEFAULT_PROMPT = DEFAULT_PROMPT_GAS  # backward compatibility
 
 # Services
 SERVICE_EXECUTE_REPORT = "execute_report"
