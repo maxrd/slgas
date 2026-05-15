@@ -18,7 +18,7 @@ class WaterTaipeiReporter(BaseReporter):
     """台灣自來水公司 (Taiwan Water Corporation) 上報模組"""
 
     BASE_URL = "https://www.water.gov.tw/ch/ECounter"
-    APPLY_URL = f"{BASE_URL}/Apply?NodeId=752&type=17&UseCertificate=0"
+    APPLY_URL = f"{BASE_URL}/ch/ECounter/Apply?Length=8"
 
     def __init__(self, hass, config: dict):
         super().__init__(hass, config)
