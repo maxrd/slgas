@@ -45,6 +45,7 @@
           "text_entity": "度數儲存實體 (input_text)",
           "schedule_time": "每日排程時間",
           "notify_script": "通知腳本 (選填)",
+          "notify_title": "通知標題 (選填)",
           "history_days": "歷史保留天數"
         }
       }
@@ -72,9 +73,14 @@
           "water_no": "水號",
           "phone": "聯繫電話",
           "email": "電子郵件",
+          "ocr_source": "辨識來源",
+          "camera_entity": "攝影機實體 (Google AI 模式)",
+          "degree_entity": "度數實體 (外部實體模式)",
+          "prompt": "AI 提示詞",
           "text_entity": "度數儲存實體",
           "schedule_time": "每日排程時間",
           "notify_script": "通知腳本",
+          "notify_title": "通知標題",
           "history_days": "歷史保留天數"
         }
       }
