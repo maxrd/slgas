@@ -84,9 +84,9 @@ class SlgasReportService:
             water_no_clean = water_no.replace("-", "")  # 移除格式符號
             filename = f"slgas_water_{water_no_clean}.png"
         else:
-            # 瓦斯: slgas_gas_<company>_<cus_no>.png
+            # 瓦斯: slgas_<cus_no>.png
             cus_no = self.config.get(CONF_CUS_NO, self.entry.entry_id[:8])
-            filename = f"slgas_gas_{self.company}_{cus_no}.png"
+            filename = f"slgas_{cus_no}.png"
 
         return f"{DEFAULT_IMAGE_DIR}/{filename}"
 
@@ -227,14 +227,13 @@ class SlgasReportService:
         content_type = "image/jpeg" if filename.lower().endswith((".jpg", ".jpeg")) else "image/png"
 
         try:
-            response = await self.hass.services.async_call(
-                "ai_task",
-                "generate_data",
-                {
-                    "task_name": "gas ai",
-                    "entity_id": "ai_task.google_ai_task",
-                    "attachments": {
-                        "media_content_id": f"media-source://media_source/local/{filename}",
+            media_id = f"media-source://media_source/local/{filename}"
+            service_data = {
+                "task_name": "gas ai",
+                "entity_id": "ai_task.google_ai_task",
+                "attachments": [
+                    {
+                        "media_content_id": media_id,
                         "media_content_type": content_type,
                         "metadata": {
                             "title": filename,
@@ -249,30 +248,43 @@ class SlgasReportService:
                                 }
                             ]
                         }
-                    },
-                    "instructions": prompt,
-                },
+                    }
+                ],
+                "instructions": prompt,
+            }
+            _LOGGER.info(f"呼叫 ai_task.generate_data: media_id={media_id}, content_type={content_type}")
+            _LOGGER.debug(f"ai_task 完整參數: {service_data}")
+
+            response = await self.hass.services.async_call(
+                "ai_task",
+                "generate_data",
+                service_data,
                 blocking=True,
                 return_response=True
             )
-            
-            if response and "text" in response:
-                raw_result = response["text"]
-                _LOGGER.info(f"AI 原始辨識結果: {raw_result}")
-                
-                # 尋找所有數字序列，選取最長的，並轉為整數以移除前導 0
-                import re
-                matches = re.findall(r"(\d+)", raw_result)
-                if matches:
-                    # 取得最長序列 (避免雜訊) 並轉為整數 (移除 0001 -> 1)
-                    ocr_result = str(int(max(matches, key=len)))
-                    _LOGGER.info(f"成功提取度數: {ocr_result} (原始結果: {raw_result})")
-                    return ocr_result
-                else:
-                    _LOGGER.warning(f"辨識結果中找不到 4 位數字: {raw_result}")
-                    return None
+
+            _LOGGER.info(f"ai_task 回應類型: {type(response)}, 內容: {response}")
+
+            # 支援多種回應結構
+            raw_result = None
+            if isinstance(response, dict):
+                raw_result = response.get("text") or (response.get("data", {}) or {}).get("text")
+
+            if not raw_result:
+                _LOGGER.error(f"Google AI 服務未回傳有效文字內容, 完整回應: {response}")
+                return None
+
+            _LOGGER.info(f"AI 原始辨識結果: {raw_result}")
+
+            # 尋找所有數字序列，選取最長的，並轉為整數以移除前導 0
+            import re
+            matches = re.findall(r"(\d+)", raw_result)
+            if matches:
+                ocr_result = str(int(max(matches, key=len)))
+                _LOGGER.info(f"成功提取度數: {ocr_result} (原始結果: {raw_result})")
+                return ocr_result
             else:
-                _LOGGER.error("Google AI 服務未回傳有效文字內容")
+                _LOGGER.warning(f"辨識結果中找不到數字: {raw_result}")
                 return None
                 
         except Exception as e:
