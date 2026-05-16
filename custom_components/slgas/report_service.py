@@ -231,29 +231,29 @@ class SlgasReportService:
             service_data = {
                 "task_name": "gas ai",
                 "entity_id": "ai_task.google_ai_task",
-                "attachments": [
-                    {
-                        "media_content_id": media_id,
-                        "media_content_type": content_type,
-                        "metadata": {
-                            "title": filename,
-                            "thumbnail": None,
-                            "media_class": "image",
-                            "children_media_class": None,
-                            "navigateIds": [
-                                {},
-                                {
-                                    "media_content_type": "app",
-                                    "media_content_id": "media-source://media_source"
-                                }
-                            ]
-                        }
+                "attachments": {
+                    "media_content_id": media_id,
+                    "media_content_type": content_type,
+                    "metadata": {
+                        "title": filename,
+                        "thumbnail": None,
+                        "media_class": "image",
+                        "children_media_class": None,
+                        "navigateIds": [
+                            {},
+                            {
+                                "media_content_type": "app",
+                                "media_content_id": "media-source://media_source"
+                            }
+                        ]
                     }
-                ],
+                },
                 "instructions": prompt,
             }
-            _LOGGER.info(f"呼叫 ai_task.generate_data: media_id={media_id}, content_type={content_type}")
-            _LOGGER.debug(f"ai_task 完整參數: {service_data}")
+            _LOGGER.info(
+                f"呼叫 ai_task.generate_data: media_id={media_id}, "
+                f"content_type={content_type}, filename={filename}"
+            )
 
             response = await self.hass.services.async_call(
                 "ai_task",
@@ -263,15 +263,22 @@ class SlgasReportService:
                 return_response=True
             )
 
-            _LOGGER.info(f"ai_task 回應類型: {type(response)}, 內容: {response}")
+            _LOGGER.info(f"ai_task 回應: {response}")
 
-            # 支援多種回應結構
+            # 解析回應 - 支援多種結構
             raw_result = None
             if isinstance(response, dict):
-                raw_result = response.get("text") or (response.get("data", {}) or {}).get("text")
+                # 嘗試頂層 text，再嘗試 data.text
+                raw_result = response.get("text")
+                if not raw_result:
+                    data = response.get("data")
+                    if isinstance(data, dict):
+                        raw_result = data.get("text")
+                    elif isinstance(data, str):
+                        raw_result = data
 
             if not raw_result:
-                _LOGGER.error(f"Google AI 服務未回傳有效文字內容, 完整回應: {response}")
+                _LOGGER.error(f"Google AI 服務未回傳有效文字, 完整回應: {response}")
                 return None
 
             _LOGGER.info(f"AI 原始辨識結果: {raw_result}")
@@ -281,14 +288,14 @@ class SlgasReportService:
             matches = re.findall(r"(\d+)", raw_result)
             if matches:
                 ocr_result = str(int(max(matches, key=len)))
-                _LOGGER.info(f"成功提取度數: {ocr_result} (原始結果: {raw_result})")
+                _LOGGER.info(f"成功提取度數: {ocr_result}")
                 return ocr_result
             else:
                 _LOGGER.warning(f"辨識結果中找不到數字: {raw_result}")
                 return None
-                
+
         except Exception as e:
-            _LOGGER.error(f"呼叫 Google AI 服務時發生錯誤: {e}")
+            _LOGGER.error(f"呼叫 Google AI 服務時發生錯誤: {e}", exc_info=True)
             return None
 
     async def _submit_to_slgas(self, degree):

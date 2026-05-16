@@ -318,6 +318,15 @@ class SlgasOptionsFlowHandler(config_entries.OptionsFlow):
                     if not re.match(r"^[^@]+@[^@]+\.[^@]+$", email):
                         errors[CONF_EMAIL] = "invalid_email"
 
+            # 驗證 OCR 來源相關欄位
+            ocr_source = user_input.get(CONF_OCR_SOURCE, OCR_SOURCE_GOOGLE_AI)
+            if ocr_source == OCR_SOURCE_GOOGLE_AI:
+                if not user_input.get(CONF_CAMERA_ENTITY):
+                    errors[CONF_CAMERA_ENTITY] = "camera_required"
+            else:
+                if not user_input.get(CONF_DEGREE_ENTITY):
+                    errors[CONF_DEGREE_ENTITY] = "degree_entity_required"
+
             if not errors:
                 return self.async_create_entry(title="", data=user_input)
 
@@ -363,6 +372,45 @@ class SlgasOptionsFlowHandler(config_entries.OptionsFlow):
 
         # 根據 meter_type 設定預設通知標題
         default_notify_title = DEFAULT_NOTIFY_TITLE_WATER if meter_type == METER_TYPE_WATER else DEFAULT_NOTIFY_TITLE_GAS
+
+        # OCR 來源設定
+        ocr_source = config.get(CONF_OCR_SOURCE, OCR_SOURCE_GOOGLE_AI)
+        schema_dict[vol.Required(
+            CONF_OCR_SOURCE, default=ocr_source
+        )] = selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=[
+                    selector.SelectOptionDict(
+                        value=OCR_SOURCE_GOOGLE_AI,
+                        label="Google AI (攝影機 + AI 辨識)"
+                    ),
+                    selector.SelectOptionDict(
+                        value=OCR_SOURCE_EXTERNAL,
+                        label="外部實體 (input_text / sensor)"
+                    ),
+                ],
+                mode=selector.SelectSelectorMode.DROPDOWN,
+            )
+        )
+
+        # 根據 OCR 來源顯示對應欄位
+        if ocr_source == OCR_SOURCE_GOOGLE_AI:
+            default_prompt = DEFAULT_PROMPT_WATER if meter_type == METER_TYPE_WATER else DEFAULT_PROMPT_GAS
+            schema_dict[vol.Required(
+                CONF_CAMERA_ENTITY,
+                default=config.get(CONF_CAMERA_ENTITY, "")
+            )] = selector.EntitySelector({"domain": "camera"})
+            schema_dict[vol.Required(
+                CONF_PROMPT,
+                default=config.get(CONF_PROMPT, default_prompt)
+            )] = selector.TextSelector({"multiline": True})
+        else:
+            schema_dict[vol.Required(
+                CONF_DEGREE_ENTITY,
+                default=config.get(CONF_DEGREE_ENTITY, "")
+            )] = selector.EntitySelector(
+                {"domain": ["input_text", "sensor"]}
+            )
 
         schema_dict.update({
             vol.Required(
