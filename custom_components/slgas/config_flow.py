@@ -18,6 +18,7 @@ from .const import (
     CONF_APPLICANT_NAME,
     CONF_EMAIL,
     CONF_PHONE,
+    CONF_TAIPOWER_ID,
     CONF_CAMERA_ENTITY,
     CONF_TEXT_ENTITY,
     CONF_SCHEDULE_TIME,
@@ -29,15 +30,19 @@ from .const import (
     CONF_DEGREE_ENTITY,
     METER_TYPE_GAS,
     METER_TYPE_WATER,
+    METER_TYPE_ELECTRICITY,
     COMPANY_SLGAS,
     COMPANY_WATER_TAIPEI,
+    COMPANY_TAIPOWER,
     OCR_SOURCE_GOOGLE_AI,
     OCR_SOURCE_EXTERNAL,
     DEFAULT_HISTORY_DAYS,
     DEFAULT_NOTIFY_TITLE_GAS,
     DEFAULT_NOTIFY_TITLE_WATER,
+    DEFAULT_NOTIFY_TITLE_ELECTRICITY,
     DEFAULT_PROMPT_GAS,
     DEFAULT_PROMPT_WATER,
+    DEFAULT_PROMPT_ELECTRICITY,
 )
 
 
@@ -75,6 +80,7 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         options=[
                             selector.SelectOptionDict(value=METER_TYPE_GAS, label="⛽ 瓦斯"),
                             selector.SelectOptionDict(value=METER_TYPE_WATER, label="💧 水錶"),
+                            selector.SelectOptionDict(value=METER_TYPE_ELECTRICITY, label="⚡ 電力"),
                         ],
                         mode=selector.SelectSelectorMode.DROPDOWN,
                     )
@@ -97,6 +103,10 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if self.meter_type == METER_TYPE_WATER:
             companies = {
                 COMPANY_WATER_TAIPEI: "台灣自來水",
+            }
+        elif self.meter_type == METER_TYPE_ELECTRICITY:
+            companies = {
+                COMPANY_TAIPOWER: "台灣電力公司",
             }
         else:  # GAS
             companies = {
@@ -150,6 +160,10 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_PHONE): str,
                 vol.Required(CONF_EMAIL): str,
             }
+        elif self.company == COMPANY_TAIPOWER:
+            schema_dict = {
+                vol.Required(CONF_TAIPOWER_ID): str,
+            }
         else:  # SLGAS
             schema_dict = {
                 vol.Required(CONF_CUS_NO): str,
@@ -185,6 +199,8 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # 根據 meter_type 推薦 prompt
         if self.meter_type == METER_TYPE_WATER:
             default_prompt = DEFAULT_PROMPT_WATER
+        elif self.meter_type == METER_TYPE_ELECTRICITY:
+            default_prompt = DEFAULT_PROMPT_ELECTRICITY
         else:
             default_prompt = DEFAULT_PROMPT_GAS
 
@@ -245,6 +261,9 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if self.meter_type == METER_TYPE_WATER:
                 unique_id = full_data.get(CONF_WATER_NO, "water")
                 title = f"💧 水錶 ({unique_id})"
+            elif self.meter_type == METER_TYPE_ELECTRICITY:
+                unique_id = full_data.get(CONF_TAIPOWER_ID, "electricity")
+                title = f"⚡ 電力 ({unique_id})"
             else:
                 unique_id = full_data.get(CONF_CUS_NO, "gas")
                 title = f"⛽ 瓦斯 ({unique_id})"
@@ -260,7 +279,12 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         config = {**self._user_input}
 
         # 根據 meter_type 設定預設通知標題
-        default_notify_title = DEFAULT_NOTIFY_TITLE_WATER if self.meter_type == METER_TYPE_WATER else DEFAULT_NOTIFY_TITLE_GAS
+        if self.meter_type == METER_TYPE_WATER:
+            default_notify_title = DEFAULT_NOTIFY_TITLE_WATER
+        elif self.meter_type == METER_TYPE_ELECTRICITY:
+            default_notify_title = DEFAULT_NOTIFY_TITLE_ELECTRICITY
+        else:
+            default_notify_title = DEFAULT_NOTIFY_TITLE_GAS
 
         return self.async_show_form(
             step_id="advanced",
@@ -354,6 +378,13 @@ class SlgasOptionsFlowHandler(config_entries.OptionsFlow):
                     default=config.get(CONF_EMAIL, "")
                 ): str,
             }
+        elif meter_type == METER_TYPE_ELECTRICITY:
+            schema_dict = {
+                vol.Required(
+                    CONF_TAIPOWER_ID,
+                    default=config.get(CONF_TAIPOWER_ID, "")
+                ): str,
+            }
         else:  # GAS
             schema_dict = {
                 vol.Required(
@@ -371,7 +402,12 @@ class SlgasOptionsFlowHandler(config_entries.OptionsFlow):
             }
 
         # 根據 meter_type 設定預設通知標題
-        default_notify_title = DEFAULT_NOTIFY_TITLE_WATER if meter_type == METER_TYPE_WATER else DEFAULT_NOTIFY_TITLE_GAS
+        if meter_type == METER_TYPE_WATER:
+            default_notify_title = DEFAULT_NOTIFY_TITLE_WATER
+        elif meter_type == METER_TYPE_ELECTRICITY:
+            default_notify_title = DEFAULT_NOTIFY_TITLE_ELECTRICITY
+        else:
+            default_notify_title = DEFAULT_NOTIFY_TITLE_GAS
 
         # OCR 來源設定
         ocr_source = config.get(CONF_OCR_SOURCE, OCR_SOURCE_GOOGLE_AI)

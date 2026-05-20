@@ -25,7 +25,8 @@
           "applicant_name": "申請人名稱",
           "water_no": "水號 (格式: XXX-XXX)",
           "phone": "聯繫電話",
-          "email": "電子郵件"
+          "email": "電子郵件",
+          "taipower_id": "用戶編號"
         }
       },
       "ocr_config": {
@@ -73,6 +74,7 @@
           "water_no": "水號",
           "phone": "聯繫電話",
           "email": "電子郵件",
+          "taipower_id": "用戶編號",
           "ocr_source": "辨識來源",
           "camera_entity": "攝影機實體 (Google AI 模式)",
           "degree_entity": "度數實體 (外部實體模式)",

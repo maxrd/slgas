@@ -5,10 +5,12 @@ DOMAIN = "slgas"
 # Meter types
 METER_TYPE_GAS = "gas"
 METER_TYPE_WATER = "water"
+METER_TYPE_ELECTRICITY = "electricity"
 
 # Companies
 COMPANY_SLGAS = "slgas"
 COMPANY_WATER_TAIPEI = "water_taipei"
+COMPANY_TAIPOWER = "taipower"
 
 # Configuration keys - Common
 CONF_METER_TYPE = "meter_type"
@@ -35,6 +37,9 @@ CONF_EMAIL = "email"
 CONF_PHONE = "phone"
 CONF_CAPTCHA_CODE = "captcha_code"
 
+# Configuration keys - Electricity (Taipower)
+CONF_TAIPOWER_ID = "taipower_id"
+
 # OCR source options
 OCR_SOURCE_GOOGLE_AI = "google_ai"
 OCR_SOURCE_EXTERNAL = "external"
@@ -43,8 +48,10 @@ OCR_SOURCE_EXTERNAL = "external"
 DEFAULT_HISTORY_DAYS = 90
 DEFAULT_NOTIFY_TITLE_GAS = "🔥 瓦斯度數回報"
 DEFAULT_NOTIFY_TITLE_WATER = "💧 水錶度數回報"
+DEFAULT_NOTIFY_TITLE_ELECTRICITY = "⚡ 電力度數回報"
 DEFAULT_PROMPT_GAS = "這是一張瓦斯表的照片,請提取左邊黑底白色數字框中的整數度數,忽略右邊紅色數字框(通常為3位),只回傳數字本身,不要有其他文字。"
 DEFAULT_PROMPT_WATER = "這是一張水錶的照片,請提取黑色數字部分的整數度數,忽略紅色小數部分。只回傳數字本身,不要有其他文字。"
+DEFAULT_PROMPT_ELECTRICITY = "這是一張電錶的照片,請提取黑色數字部分的整數度數,忽略小數部分。只回傳數字本身,不要有其他文字。"
 DEFAULT_PROMPT = DEFAULT_PROMPT_GAS  # backward compatibility
 
 # Services

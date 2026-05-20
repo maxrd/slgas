@@ -2,66 +2,93 @@
   "config": {
     "step": {
       "user": {
-        "title": "設定欣隆瓦斯自動回報",
-        "description": "第 1 步：填寫用戶基本資料並選擇度數來源。",
+        "title": "選擇類型",
+        "description": "第 1/6 步：請選擇要配置的類型",
         "data": {
-          "cus_no": "用戶編號 (CusNo)",
-          "cus_name": "用戶名稱 (CusName)",
-          "cus_phone": "用戶手機 (Cuscallno)",
-          "ocr_source": "度數來源"
+          "meter_type": "類型"
         }
       },
-      "setup": {
-        "title": "設定欣隆瓦斯 - 來源詳細設定",
-        "description": "第 2 步：根據您選擇的度數來源，設定相關欄位。",
+      "company": {
+        "title": "選擇公司",
+        "description": "第 2/6 步：請選擇對應的公司或服務提供商",
         "data": {
-          "camera_entity": "攝影機 (Google AI 模式使用)",
-          "degree_entity": "度數來源實體 (input_text 或 sensor)",
-          "text_entity": "度數存放實體 (input_text)",
-          "schedule_time": "每日自動辨識執行時間",
-          "notify_script": "通知腳本 (可留空)",
-          "history_days": "歷史紀錄保留天數",
-          "prompt": "Google AI 辨識指令 (Prompt)"
+          "company": "公司"
+        }
+      },
+      "basic_info": {
+        "title": "基本資訊",
+        "description": "第 3/6 步：請填入必要的帳戶資訊",
+        "data": {
+          "cus_no": "客戶號",
+          "cus_name": "客戶名稱",
+          "cus_phone": "聯繫電話",
+          "applicant_name": "申請人名稱",
+          "water_no": "水號 (格式: XXX-XXX)",
+          "phone": "聯繫電話",
+          "email": "電子郵件",
+          "taipower_id": "用戶編號"
+        }
+      },
+      "ocr_config": {
+        "title": "OCR 設定",
+        "description": "第 4/6 步：設定度數辨識方式",
+        "data": {
+          "ocr_source": "辨識來源",
+          "camera_entity": "攝影機實體 (Google AI 模式)",
+          "degree_entity": "度數實體 (外部實體模式)",
+          "prompt": "AI 提示詞"
+        }
+      },
+      "advanced": {
+        "title": "進階選項",
+        "description": "第 5/6 步：設定通知和排程 (選填)",
+        "data": {
+          "text_entity": "度數儲存實體 (input_text)",
+          "schedule_time": "每日排程時間",
+          "notify_script": "通知腳本 (選填)",
+          "notify_title": "通知標題 (選填)",
+          "history_days": "歷史保留天數"
         }
       }
     },
     "error": {
-      "camera_required": "Google AI 模式必須設定攝影機實體。",
-      "degree_entity_required": "外部實體模式必須設定度數來源實體。"
+      "camera_required": "Google AI 模式需要選擇攝影機實體",
+      "degree_entity_required": "外部實體模式需要選擇度數實體",
+      "invalid_water_no_format": "水號格式應為 XXX-XXX (例: 123-456)",
+      "invalid_email": "電郵格式不正確"
     },
     "abort": {
-      "already_configured": "此用戶編號已設定過。"
+      "already_configured": "此帳戶已配置"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "修改設定 - 欣隆瓦斯自動回報",
-        "description": "第 1 步：修改用戶基本資料與度數來源。",
+        "title": "更新設定",
+        "description": "修改帳戶和辨識設定",
         "data": {
-          "cus_no": "用戶編號 (CusNo)",
-          "cus_name": "用戶名稱 (CusName)",
-          "cus_phone": "用戶手機 (Cuscallno)",
-          "ocr_source": "度數來源"
-        }
-      },
-      "setup": {
-        "title": "修改設定 - 來源詳細設定",
-        "description": "第 2 步：修改度數來源相關設定。",
-        "data": {
-          "camera_entity": "攝影機 (Google AI 模式使用)",
-          "degree_entity": "度數來源實體 (input_text 或 sensor)",
-          "text_entity": "度數存放實體 (input_text)",
-          "schedule_time": "每日自動辨識執行時間",
-          "notify_script": "通知腳本 (可留空)",
-          "history_days": "歷史紀錄保留天數",
-          "prompt": "Google AI 辨識指令 (Prompt)"
+          "cus_no": "客戶號",
+          "cus_name": "客戶名稱",
+          "cus_phone": "聯繫電話",
+          "applicant_name": "申請人名稱",
+          "water_no": "水號",
+          "phone": "聯繫電話",
+          "email": "電子郵件",
+          "taipower_id": "用戶編號",
+          "ocr_source": "辨識來源",
+          "camera_entity": "攝影機實體 (Google AI 模式)",
+          "degree_entity": "度數實體 (外部實體模式)",
+          "prompt": "AI 提示詞",
+          "text_entity": "度數儲存實體",
+          "schedule_time": "每日排程時間",
+          "notify_script": "通知腳本",
+          "notify_title": "通知標題",
+          "history_days": "歷史保留天數"
         }
       }
     },
     "error": {
-      "camera_required": "Google AI 模式必須設定攝影機實體。",
-      "degree_entity_required": "外部實體模式必須設定度數來源實體。"
+      "invalid_email": "電郵格式不正確"
     }
   }
 }

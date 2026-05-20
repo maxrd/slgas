@@ -15,17 +15,20 @@ from .const import (
     SERVICE_EXECUTE_REPORT,
     COMPANY_SLGAS,
     COMPANY_WATER_TAIPEI,
+    COMPANY_TAIPOWER,
 )
 from .report_service import SlgasReportService
 from .reporters.factory import ReporterFactory
 from .reporters.slgas import SlgasReporter
 from .reporters.water_taipei import WaterTaipeiReporter
+from .reporters.taipower import TaipowerReporter
 
 _LOGGER = logging.getLogger(__name__)
 
 # Register reporters
 ReporterFactory.register(COMPANY_SLGAS, SlgasReporter)
 ReporterFactory.register(COMPANY_WATER_TAIPEI, WaterTaipeiReporter)
+ReporterFactory.register(COMPANY_TAIPOWER, TaipowerReporter)
 
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BUTTON]
 

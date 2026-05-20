@@ -9,12 +9,12 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfVolume
+from homeassistant.const import UnitOfVolume, UnitOfEnergy
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
-from .const import DOMAIN, CONF_METER_TYPE, METER_TYPE_WATER, METER_TYPE_GAS
+from .const import DOMAIN, CONF_METER_TYPE, METER_TYPE_WATER, METER_TYPE_GAS, METER_TYPE_ELECTRICITY
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -52,19 +52,27 @@ class UniversalMeterSensor(SensorEntity, RestoreEntity):
             self._attr_name = f"水錶度數 ({water_no})"
             self._attr_icon = "mdi:water"
             self._attr_device_class = SensorDeviceClass.WATER
+            self._attr_native_unit_of_measurement = UnitOfVolume.CUBIC_METERS
+        elif meter_type == METER_TYPE_ELECTRICITY:
+            taipower_id = entry.data.get("taipower_id", "")
+            self._attr_name = f"電力度數 ({taipower_id})"
+            self._attr_icon = "mdi:transmission-tower"
+            self._attr_device_class = SensorDeviceClass.ENERGY
+            self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
         elif meter_type == METER_TYPE_GAS:
             cus_no = entry.data.get("cus_no", "")
             self._attr_name = f"瓦斯度數 ({cus_no})"
             self._attr_icon = "mdi:counter"
             self._attr_device_class = SensorDeviceClass.GAS
+            self._attr_native_unit_of_measurement = UnitOfVolume.CUBIC_METERS
         else:
             self._attr_name = f"度數 ({entry.entry_id[:8]})"
             self._attr_icon = "mdi:counter"
             self._attr_device_class = SensorDeviceClass.GAS
+            self._attr_native_unit_of_measurement = UnitOfVolume.CUBIC_METERS
 
         self._attr_unique_id = f"{entry.entry_id}_meter"
         self._attr_state_class = SensorStateClass.TOTAL_INCREASING
-        self._attr_native_unit_of_measurement = UnitOfVolume.CUBIC_METERS
         self._attr_native_value = None
 
     async def async_added_to_hass(self):
@@ -74,7 +82,12 @@ class UniversalMeterSensor(SensorEntity, RestoreEntity):
         if last_state and last_state.state not in ("unknown", "unavailable", None):
             try:
                 self._attr_native_value = int(last_state.state)
-                meter_type_str = "水錶" if self._meter_type == METER_TYPE_WATER else "瓦斯"
+                if self._meter_type == METER_TYPE_WATER:
+                    meter_type_str = "水錶"
+                elif self._meter_type == METER_TYPE_ELECTRICITY:
+                    meter_type_str = "電力"
+                else:
+                    meter_type_str = "瓦斯"
                 _LOGGER.info(
                     f"已恢復{meter_type_str}度數感測器上次狀態: {last_state.state}"
                 )
@@ -109,6 +122,10 @@ class SlgasReportSensor(SensorEntity):
             water_no = entry.data.get("water_no", "")
             status_name = f"水錶回報狀態 ({water_no})"
             icon = "mdi:water"
+        elif meter_type == METER_TYPE_ELECTRICITY:
+            taipower_id = entry.data.get("taipower_id", "")
+            status_name = f"電力回報狀態 ({taipower_id})"
+            icon = "mdi:transmission-tower"
         else:
             cus_no = entry.data.get("cus_no", "")
             status_name = f"瓦斯回報狀態 ({cus_no})"
