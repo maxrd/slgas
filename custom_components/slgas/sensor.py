@@ -52,7 +52,7 @@ class UniversalMeterSensor(SensorEntity, RestoreEntity):
             self._attr_name = f"水錶度數 ({water_no})"
             self._attr_icon = "mdi:water"
             self._attr_device_class = SensorDeviceClass.WATER
-            self._attr_native_unit_of_measurement = UnitOfVolume.CUBIC_METERS
+            self._attr_native_unit_of_measurement = UnitOfVolume.LITERS
         elif meter_type == METER_TYPE_ELECTRICITY:
             taipower_id = entry.data.get("taipower_id", "")
             self._attr_name = f"電力度數 ({taipower_id})"
