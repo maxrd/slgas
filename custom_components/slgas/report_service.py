@@ -20,6 +20,9 @@ from .const import (
     CONF_METER_TYPE,
     CONF_COMPANY,
     CONF_WATER_NO,
+    CONF_WATER_NUM1,
+    CONF_WATER_NUM2,
+    CONF_WATER_NUM3,
     OCR_SOURCE_GOOGLE_AI,
     OCR_SOURCE_EXTERNAL,
     DEFAULT_HISTORY_DAYS,
@@ -79,12 +82,16 @@ class SlgasReportService:
     def image_path(self) -> str:
         """Return per-entry snapshot path based on meter_type and company."""
         if self.meter_type == METER_TYPE_WATER:
-            # 水錶: slgas_water_<water_no>.png
-            water_no = self.config.get(CONF_WATER_NO, self.entry.entry_id[:8])
-            water_no_clean = water_no.replace("-", "")  # 移除格式符號
-            filename = f"slgas_water_{water_no_clean}.png"
+            # 優先用新三段水號，fallback 舊 CONF_WATER_NO
+            n1 = self.config.get(CONF_WATER_NUM1, "")
+            n2 = self.config.get(CONF_WATER_NUM2, "")
+            n3 = self.config.get(CONF_WATER_NUM3, "")
+            if n1:
+                water_id = f"{n1}{n2}{n3}"
+            else:
+                water_id = self.config.get(CONF_WATER_NO, self.entry.entry_id[:8]).replace("-", "")
+            filename = f"slgas_water_{water_id}.png"
         else:
-            # 瓦斯: slgas_<cus_no>.png
             cus_no = self.config.get(CONF_CUS_NO, self.entry.entry_id[:8])
             filename = f"slgas_{cus_no}.png"
 

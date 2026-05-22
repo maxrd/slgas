@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import aiohttp
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
@@ -15,6 +16,12 @@ from .const import (
     CONF_CUS_NAME,
     CONF_CUS_PHONE,
     CONF_WATER_NO,
+    CONF_WATER_NUM1,
+    CONF_WATER_NUM2,
+    CONF_WATER_NUM3,
+    CONF_WATER_ADDR_CITY,
+    CONF_WATER_ADDR_DIST,
+    CONF_WATER_ADDR,
     CONF_APPLICANT_NAME,
     CONF_EMAIL,
     CONF_PHONE,
@@ -43,7 +50,26 @@ from .const import (
     DEFAULT_PROMPT_GAS,
     DEFAULT_PROMPT_WATER,
     DEFAULT_PROMPT_ELECTRICITY,
+    WATER_TAIPEI_CITIES,
 )
+
+_TAIWAN_AREA_URL = "https://www.water.gov.tw/ch/ECounter/TaiwanAreaDropDownList"
+
+
+async def _fetch_districts(city_code: str) -> list[dict]:
+    """從台水 API 取得鄉鎮區選項，不需要 session。"""
+    if not city_code:
+        return []
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                _TAIWAN_AREA_URL,
+                data={"cityCode": city_code},
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                return await resp.json(content_type=None)
+    except Exception:
+        return []
 
 
 class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -134,20 +160,25 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
 
         if user_input is not None:
-            # 驗證欄位
             if self.company == COMPANY_WATER_TAIPEI:
-                # 驗證水號格式 (XXX-XXX)
-                water_no = user_input.get(CONF_WATER_NO, "")
-                if water_no and not re.match(r"^\d{1,3}-\d{1,3}$", water_no):
-                    errors[CONF_WATER_NO] = "invalid_water_no_format"
-                # 驗證電郵格式
+                # 水號格式驗證
+                num1 = user_input.get(CONF_WATER_NUM1, "")
+                num2 = user_input.get(CONF_WATER_NUM2, "")
+                num3 = user_input.get(CONF_WATER_NUM3, "")
+                if not re.match(r"^[A-Za-z0-9]{2}$", num1):
+                    errors[CONF_WATER_NUM1] = "invalid_water_num1"
+                if not re.match(r"^\d{8}$", num2):
+                    errors[CONF_WATER_NUM2] = "invalid_water_num2"
+                if not re.match(r"^[A-Za-z0-9]{1}$", num3):
+                    errors[CONF_WATER_NUM3] = "invalid_water_num3"
                 email = user_input.get(CONF_EMAIL, "")
-                if email and email.strip():
-                    if not re.match(r"^[^@]+@[^@]+\.[^@]+$", email):
-                        errors[CONF_EMAIL] = "invalid_email"
+                if email and not re.match(r"^[^@]+@[^@]+\.[^@]+$", email):
+                    errors[CONF_EMAIL] = "invalid_email"
 
             if not errors:
                 self._user_input.update(user_input)
+                if self.company == COMPANY_WATER_TAIPEI:
+                    return await self.async_step_water_district()
                 return await self.async_step_ocr_config()
 
         # 根據公司動態生成欄位
@@ -156,9 +187,20 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if self.company == COMPANY_WATER_TAIPEI:
             schema_dict = {
                 vol.Required(CONF_APPLICANT_NAME): str,
-                vol.Required(CONF_WATER_NO): str,
+                vol.Required(CONF_WATER_NUM1): str,
+                vol.Required(CONF_WATER_NUM2): str,
+                vol.Required(CONF_WATER_NUM3): str,
                 vol.Required(CONF_PHONE): str,
                 vol.Required(CONF_EMAIL): str,
+                vol.Required(CONF_WATER_ADDR_CITY): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[
+                            selector.SelectOptionDict(value=v, label=label)
+                            for v, label in WATER_TAIPEI_CITIES
+                        ],
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
             }
         elif self.company == COMPANY_TAIPOWER:
             schema_dict = {
@@ -174,6 +216,41 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="basic_info",
             data_schema=vol.Schema(schema_dict),
+            errors=errors,
+        )
+
+    async def async_step_water_district(self, user_input=None):
+        """步驟 3b: 用水地址 (台水專用) — 動態載入鄉鎮區"""
+        errors = {}
+
+        if user_input is not None:
+            if not user_input.get(CONF_WATER_ADDR_DIST):
+                errors[CONF_WATER_ADDR_DIST] = "district_required"
+            if not user_input.get(CONF_WATER_ADDR, "").strip():
+                errors[CONF_WATER_ADDR] = "address_required"
+            if not errors:
+                self._user_input.update(user_input)
+                return await self.async_step_ocr_config()
+
+        city_code = self._user_input.get(CONF_WATER_ADDR_CITY, "")
+        districts = await _fetch_districts(city_code)
+
+        dist_options = [selector.SelectOptionDict(value="", label="請選擇")] + [
+            selector.SelectOptionDict(value=d["Value"], label=d["Text"])
+            for d in districts
+        ]
+
+        return self.async_show_form(
+            step_id="water_district",
+            data_schema=vol.Schema({
+                vol.Required(CONF_WATER_ADDR_DIST): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=dist_options,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Required(CONF_WATER_ADDR): str,
+            }),
             errors=errors,
         )
 
@@ -259,7 +336,10 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             # 設定唯一 ID
             if self.meter_type == METER_TYPE_WATER:
-                unique_id = full_data.get(CONF_WATER_NO, "water")
+                n1 = full_data.get(CONF_WATER_NUM1, "")
+                n2 = full_data.get(CONF_WATER_NUM2, "")
+                n3 = full_data.get(CONF_WATER_NUM3, "")
+                unique_id = f"{n1}-{n2}-{n3}" if n1 else full_data.get(CONF_WATER_NO, "water")
                 title = f"💧 水錶 ({unique_id})"
             elif self.meter_type == METER_TYPE_ELECTRICITY:
                 unique_id = full_data.get(CONF_TAIPOWER_ID, "electricity")
@@ -323,161 +403,211 @@ class SlgasOptionsFlowHandler(config_entries.OptionsFlow):
     """處理選項流程"""
 
     def __init__(self):
-        """初始化選項流"""
         self._user_input: dict = {}
 
+    # ------------------------------------------------------------------ routing
     async def async_step_init(self, user_input=None):
-        """初始選項步驟"""
+        config = {**self.config_entry.data, **self.config_entry.options}
+        if (config.get(CONF_METER_TYPE) == METER_TYPE_WATER
+                and config.get(CONF_COMPANY) == COMPANY_WATER_TAIPEI):
+            return await self.async_step_water_basic(user_input)
+        return await self.async_step_general(user_input)
+
+    # ------------------------------------------------------------------ water_taipei: step 1
+    async def async_step_water_basic(self, user_input=None):
+        """台水選項步驟 1：基本資訊 + 縣市"""
         errors = {}
         config = {**self.config_entry.data, **self.config_entry.options}
 
         if user_input is not None:
-            meter_type = config.get(CONF_METER_TYPE, METER_TYPE_GAS)
-            company = config.get(CONF_COMPANY, COMPANY_SLGAS)
+            if not re.match(r"^[A-Za-z0-9]{2}$", user_input.get(CONF_WATER_NUM1, "")):
+                errors[CONF_WATER_NUM1] = "invalid_water_num1"
+            if not re.match(r"^\d{8}$", user_input.get(CONF_WATER_NUM2, "")):
+                errors[CONF_WATER_NUM2] = "invalid_water_num2"
+            if not re.match(r"^[A-Za-z0-9]{1}$", user_input.get(CONF_WATER_NUM3, "")):
+                errors[CONF_WATER_NUM3] = "invalid_water_num3"
+            email = user_input.get(CONF_EMAIL, "")
+            if email and not re.match(r"^[^@]+@[^@]+\.[^@]+$", email):
+                errors[CONF_EMAIL] = "invalid_email"
+            if not errors:
+                self._user_input.update(user_input)
+                return await self.async_step_water_district_opts(None)
 
-            # 驗證欄位
-            if meter_type == METER_TYPE_WATER and company == COMPANY_WATER_TAIPEI:
-                email = user_input.get(CONF_EMAIL, "")
-                if email and email.strip():
-                    if not re.match(r"^[^@]+@[^@]+\.[^@]+$", email):
-                        errors[CONF_EMAIL] = "invalid_email"
+        return self.async_show_form(
+            step_id="water_basic",
+            data_schema=vol.Schema({
+                vol.Required(CONF_APPLICANT_NAME,
+                             default=config.get(CONF_APPLICANT_NAME, "")): str,
+                vol.Required(CONF_WATER_NUM1,
+                             default=config.get(CONF_WATER_NUM1, "")): str,
+                vol.Required(CONF_WATER_NUM2,
+                             default=config.get(CONF_WATER_NUM2, "")): str,
+                vol.Required(CONF_WATER_NUM3,
+                             default=config.get(CONF_WATER_NUM3, "")): str,
+                vol.Required(CONF_PHONE,
+                             default=config.get(CONF_PHONE, "")): str,
+                vol.Required(CONF_EMAIL,
+                             default=config.get(CONF_EMAIL, "")): str,
+                vol.Required(CONF_WATER_ADDR_CITY,
+                             default=config.get(CONF_WATER_ADDR_CITY, "")): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[selector.SelectOptionDict(value=v, label=lbl)
+                                 for v, lbl in WATER_TAIPEI_CITIES],
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+            }),
+            errors=errors,
+        )
 
-            # 驗證 OCR 來源相關欄位
-            ocr_source = user_input.get(CONF_OCR_SOURCE, OCR_SOURCE_GOOGLE_AI)
-            if ocr_source == OCR_SOURCE_GOOGLE_AI:
-                if not user_input.get(CONF_CAMERA_ENTITY):
-                    errors[CONF_CAMERA_ENTITY] = "camera_required"
-            else:
-                if not user_input.get(CONF_DEGREE_ENTITY):
-                    errors[CONF_DEGREE_ENTITY] = "degree_entity_required"
+    # ------------------------------------------------------------------ water_taipei: step 2
+    async def async_step_water_district_opts(self, user_input=None):
+        """台水選項步驟 2：鄉鎮區 + 地址 + OCR + 進階"""
+        errors = {}
+        config = {**self.config_entry.data, **self.config_entry.options}
+        ocr_source = config.get(CONF_OCR_SOURCE, OCR_SOURCE_GOOGLE_AI)
 
+        if user_input is not None:
+            if not user_input.get(CONF_WATER_ADDR_DIST):
+                errors[CONF_WATER_ADDR_DIST] = "district_required"
+            if not user_input.get(CONF_WATER_ADDR, "").strip():
+                errors[CONF_WATER_ADDR] = "address_required"
+            src = user_input.get(CONF_OCR_SOURCE, OCR_SOURCE_GOOGLE_AI)
+            if src == OCR_SOURCE_GOOGLE_AI and not user_input.get(CONF_CAMERA_ENTITY):
+                errors[CONF_CAMERA_ENTITY] = "camera_required"
+            elif src == OCR_SOURCE_EXTERNAL and not user_input.get(CONF_DEGREE_ENTITY):
+                errors[CONF_DEGREE_ENTITY] = "degree_entity_required"
+            if not errors:
+                return self.async_create_entry(title="", data={**self._user_input, **user_input})
+
+        city_code = self._user_input.get(CONF_WATER_ADDR_CITY,
+                                         config.get(CONF_WATER_ADDR_CITY, ""))
+        districts = await _fetch_districts(city_code)
+        dist_options = [selector.SelectOptionDict(value="", label="請選擇")] + [
+            selector.SelectOptionDict(value=d["Value"], label=d["Text"])
+            for d in districts
+        ]
+
+        schema_dict: dict = {
+            vol.Required(CONF_WATER_ADDR_DIST,
+                         default=config.get(CONF_WATER_ADDR_DIST, "")): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=dist_options,
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Required(CONF_WATER_ADDR,
+                         default=config.get(CONF_WATER_ADDR, "")): str,
+            vol.Required(CONF_OCR_SOURCE, default=ocr_source): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        selector.SelectOptionDict(value=OCR_SOURCE_GOOGLE_AI,
+                                                  label="Google AI (攝影機 + AI 辨識)"),
+                        selector.SelectOptionDict(value=OCR_SOURCE_EXTERNAL,
+                                                  label="外部實體 (input_text / sensor)"),
+                    ],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            ),
+        }
+        if ocr_source == OCR_SOURCE_GOOGLE_AI:
+            schema_dict[vol.Required(CONF_CAMERA_ENTITY,
+                                     default=config.get(CONF_CAMERA_ENTITY, ""))] = \
+                selector.EntitySelector({"domain": "camera"})
+            schema_dict[vol.Required(CONF_PROMPT,
+                                     default=config.get(CONF_PROMPT, DEFAULT_PROMPT_WATER))] = \
+                selector.TextSelector({"multiline": True})
+        else:
+            schema_dict[vol.Required(CONF_DEGREE_ENTITY,
+                                     default=config.get(CONF_DEGREE_ENTITY, ""))] = \
+                selector.EntitySelector({"domain": ["input_text", "sensor"]})
+
+        schema_dict.update(self._advanced_schema(config, DEFAULT_NOTIFY_TITLE_WATER))
+
+        return self.async_show_form(
+            step_id="water_district_opts",
+            data_schema=vol.Schema(schema_dict),
+            errors=errors,
+        )
+
+    # ------------------------------------------------------------------ gas / electricity
+    async def async_step_general(self, user_input=None):
+        """瓦斯 / 電力 單頁選項"""
+        errors = {}
+        config = {**self.config_entry.data, **self.config_entry.options}
+        meter_type = config.get(CONF_METER_TYPE, METER_TYPE_GAS)
+        ocr_source = config.get(CONF_OCR_SOURCE, OCR_SOURCE_GOOGLE_AI)
+
+        if user_input is not None:
+            src = user_input.get(CONF_OCR_SOURCE, OCR_SOURCE_GOOGLE_AI)
+            if src == OCR_SOURCE_GOOGLE_AI and not user_input.get(CONF_CAMERA_ENTITY):
+                errors[CONF_CAMERA_ENTITY] = "camera_required"
+            elif src == OCR_SOURCE_EXTERNAL and not user_input.get(CONF_DEGREE_ENTITY):
+                errors[CONF_DEGREE_ENTITY] = "degree_entity_required"
             if not errors:
                 return self.async_create_entry(title="", data=user_input)
 
-        meter_type = config.get(CONF_METER_TYPE, METER_TYPE_GAS)
-
-        # 根據 meter_type 顯示不同的欄位
-        schema_dict = {}
-
-        if meter_type == METER_TYPE_WATER:
-            schema_dict = {
-                vol.Required(
-                    CONF_APPLICANT_NAME,
-                    default=config.get(CONF_APPLICANT_NAME, "")
-                ): str,
-                vol.Required(
-                    CONF_WATER_NO,
-                    default=config.get(CONF_WATER_NO, "")
-                ): str,
-                vol.Required(
-                    CONF_PHONE,
-                    default=config.get(CONF_PHONE, "")
-                ): str,
-                vol.Required(
-                    CONF_EMAIL,
-                    default=config.get(CONF_EMAIL, "")
-                ): str,
-            }
-        elif meter_type == METER_TYPE_ELECTRICITY:
-            schema_dict = {
-                vol.Required(
-                    CONF_TAIPOWER_ID,
-                    default=config.get(CONF_TAIPOWER_ID, "")
-                ): str,
-            }
-        else:  # GAS
-            schema_dict = {
-                vol.Required(
-                    CONF_CUS_NO,
-                    default=config.get(CONF_CUS_NO, "")
-                ): str,
-                vol.Required(
-                    CONF_CUS_NAME,
-                    default=config.get(CONF_CUS_NAME, "")
-                ): str,
-                vol.Required(
-                    CONF_CUS_PHONE,
-                    default=config.get(CONF_CUS_PHONE, "")
-                ): str,
-            }
-
-        # 根據 meter_type 設定預設通知標題
-        if meter_type == METER_TYPE_WATER:
-            default_notify_title = DEFAULT_NOTIFY_TITLE_WATER
-        elif meter_type == METER_TYPE_ELECTRICITY:
-            default_notify_title = DEFAULT_NOTIFY_TITLE_ELECTRICITY
+        if meter_type == METER_TYPE_ELECTRICITY:
+            id_schema = {vol.Required(CONF_TAIPOWER_ID,
+                                      default=config.get(CONF_TAIPOWER_ID, "")): str}
+            default_title = DEFAULT_NOTIFY_TITLE_ELECTRICITY
+            default_prompt = DEFAULT_PROMPT_ELECTRICITY
         else:
-            default_notify_title = DEFAULT_NOTIFY_TITLE_GAS
+            id_schema = {
+                vol.Required(CONF_CUS_NO, default=config.get(CONF_CUS_NO, "")): str,
+                vol.Required(CONF_CUS_NAME, default=config.get(CONF_CUS_NAME, "")): str,
+                vol.Required(CONF_CUS_PHONE, default=config.get(CONF_CUS_PHONE, "")): str,
+            }
+            default_title = DEFAULT_NOTIFY_TITLE_GAS
+            default_prompt = DEFAULT_PROMPT_GAS
 
-        # OCR 來源設定
-        ocr_source = config.get(CONF_OCR_SOURCE, OCR_SOURCE_GOOGLE_AI)
-        schema_dict[vol.Required(
-            CONF_OCR_SOURCE, default=ocr_source
-        )] = selector.SelectSelector(
-            selector.SelectSelectorConfig(
-                options=[
-                    selector.SelectOptionDict(
-                        value=OCR_SOURCE_GOOGLE_AI,
-                        label="Google AI (攝影機 + AI 辨識)"
-                    ),
-                    selector.SelectOptionDict(
-                        value=OCR_SOURCE_EXTERNAL,
-                        label="外部實體 (input_text / sensor)"
-                    ),
-                ],
-                mode=selector.SelectSelectorMode.DROPDOWN,
-            )
-        )
-
-        # 根據 OCR 來源顯示對應欄位
+        schema_dict = {**id_schema,
+                       vol.Required(CONF_OCR_SOURCE, default=ocr_source): selector.SelectSelector(
+                           selector.SelectSelectorConfig(
+                               options=[
+                                   selector.SelectOptionDict(value=OCR_SOURCE_GOOGLE_AI,
+                                                             label="Google AI (攝影機 + AI 辨識)"),
+                                   selector.SelectOptionDict(value=OCR_SOURCE_EXTERNAL,
+                                                             label="外部實體 (input_text / sensor)"),
+                               ],
+                               mode=selector.SelectSelectorMode.DROPDOWN,
+                           )
+                       )}
         if ocr_source == OCR_SOURCE_GOOGLE_AI:
-            default_prompt = DEFAULT_PROMPT_WATER if meter_type == METER_TYPE_WATER else DEFAULT_PROMPT_GAS
-            schema_dict[vol.Required(
-                CONF_CAMERA_ENTITY,
-                default=config.get(CONF_CAMERA_ENTITY, "")
-            )] = selector.EntitySelector({"domain": "camera"})
-            schema_dict[vol.Required(
-                CONF_PROMPT,
-                default=config.get(CONF_PROMPT, default_prompt)
-            )] = selector.TextSelector({"multiline": True})
+            schema_dict[vol.Required(CONF_CAMERA_ENTITY,
+                                     default=config.get(CONF_CAMERA_ENTITY, ""))] = \
+                selector.EntitySelector({"domain": "camera"})
+            schema_dict[vol.Required(CONF_PROMPT,
+                                     default=config.get(CONF_PROMPT, default_prompt))] = \
+                selector.TextSelector({"multiline": True})
         else:
-            schema_dict[vol.Required(
-                CONF_DEGREE_ENTITY,
-                default=config.get(CONF_DEGREE_ENTITY, "")
-            )] = selector.EntitySelector(
-                {"domain": ["input_text", "sensor"]}
-            )
+            schema_dict[vol.Required(CONF_DEGREE_ENTITY,
+                                     default=config.get(CONF_DEGREE_ENTITY, ""))] = \
+                selector.EntitySelector({"domain": ["input_text", "sensor"]})
 
-        schema_dict.update({
-            vol.Required(
-                CONF_TEXT_ENTITY,
-                default=config.get(CONF_TEXT_ENTITY, "")
-            ): selector.EntitySelector({"domain": "input_text"}),
-            vol.Required(
-                CONF_SCHEDULE_TIME,
-                default=config.get(CONF_SCHEDULE_TIME, "08:00:00")
-            ): selector.TimeSelector(),
-            vol.Optional(
-                CONF_NOTIFY_SCRIPT,
-                default=config.get(CONF_NOTIFY_SCRIPT, "")
-            ): selector.EntitySelector({"domain": "script"}),
-            vol.Optional(
-                CONF_NOTIFY_TITLE,
-                default=config.get(CONF_NOTIFY_TITLE, default_notify_title)
-            ): str,
-            vol.Optional(
-                CONF_HISTORY_DAYS,
-                default=config.get(CONF_HISTORY_DAYS, DEFAULT_HISTORY_DAYS)
-            ): selector.NumberSelector({
-                "min": 1,
-                "max": 365,
-                "step": 1,
-                "mode": "box"
-            }),
-        })
+        schema_dict.update(self._advanced_schema(config, default_title))
 
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(schema_dict),
             errors=errors,
         )
+
+    # ------------------------------------------------------------------ shared helper
+    @staticmethod
+    def _advanced_schema(config: dict, default_title: str) -> dict:
+        return {
+            vol.Required(CONF_TEXT_ENTITY,
+                         default=config.get(CONF_TEXT_ENTITY, "")): selector.EntitySelector(
+                {"domain": "input_text"}),
+            vol.Required(CONF_SCHEDULE_TIME,
+                         default=config.get(CONF_SCHEDULE_TIME, "08:00:00")): selector.TimeSelector(),
+            vol.Optional(CONF_NOTIFY_SCRIPT,
+                         default=config.get(CONF_NOTIFY_SCRIPT, "")): selector.EntitySelector(
+                {"domain": "script"}),
+            vol.Optional(CONF_NOTIFY_TITLE,
+                         default=config.get(CONF_NOTIFY_TITLE, default_title)): str,
+            vol.Optional(CONF_HISTORY_DAYS,
+                         default=config.get(CONF_HISTORY_DAYS, DEFAULT_HISTORY_DAYS)): selector.NumberSelector(
+                {"min": 1, "max": 365, "step": 1, "mode": "box"}),
+        }

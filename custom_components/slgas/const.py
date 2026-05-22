@@ -31,7 +31,13 @@ CONF_CUS_NAME = "cus_name"
 CONF_CUS_PHONE = "cus_phone"
 
 # Configuration keys - Water (Taiwan Water)
-CONF_WATER_NO = "water_no"
+CONF_WATER_NO = "water_no"          # legacy, kept for backward compat
+CONF_WATER_NUM1 = "water_num1"      # 大區 2碼, e.g. "1B"
+CONF_WATER_NUM2 = "water_num2"      # 用戶編號 8碼, e.g. "12345678"
+CONF_WATER_NUM3 = "water_num3"      # 檢查號 1碼, e.g. "9"
+CONF_WATER_ADDR_CITY = "water_addr_city"   # 縣市代碼, e.g. "C"
+CONF_WATER_ADDR_DIST = "water_addr_dist"   # 鄉鎮區代碼, e.g. "207"
+CONF_WATER_ADDR = "water_addr"      # 詳細地址
 CONF_APPLICANT_NAME = "applicant_name"
 CONF_EMAIL = "email"
 CONF_PHONE = "phone"
@@ -60,3 +66,13 @@ SERVICE_EXECUTE_REPORT = "execute_report"
 # File paths
 DEFAULT_IMAGE_DIR = "/media"
 DEFAULT_IMAGE_PATH = "/media/slgas.png"  # fallback for single-entry compatibility
+DEFAULT_CAPTCHA_IMAGE_PATH = "/media/water_captcha.gif"
+
+# Taiwan Water city codes (value, label)
+WATER_TAIPEI_CITIES = [
+    ("B", "基隆市"), ("C", "新北市"), ("D", "宜蘭縣"), ("E", "桃園市"),
+    ("F", "新竹市"), ("G", "新竹縣"), ("H", "苗栗縣"), ("I", "台中市"),
+    ("J", "彰化縣"), ("K", "南投縣"), ("L", "雲林縣"), ("M", "嘉義市"),
+    ("N", "嘉義縣"), ("O", "台南市"), ("P", "高雄市"), ("Q", "屏東縣"),
+    ("R", "台東縣"), ("S", "花蓮縣"), ("T", "澎湖縣"), ("U", "金門縣"),
+]

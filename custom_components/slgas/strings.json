@@ -3,35 +3,46 @@
     "step": {
       "user": {
         "title": "選擇類型",
-        "description": "第 1/6 步：請選擇要配置的類型",
+        "description": "第 1 步：請選擇要配置的類型",
         "data": {
           "meter_type": "類型"
         }
       },
       "company": {
         "title": "選擇公司",
-        "description": "第 2/6 步：請選擇對應的公司或服務提供商",
+        "description": "第 2 步：請選擇對應的公司或服務提供商",
         "data": {
           "company": "公司"
         }
       },
       "basic_info": {
         "title": "基本資訊",
-        "description": "第 3/6 步：請填入必要的帳戶資訊",
+        "description": "第 3 步：請填入必要的帳戶資訊",
         "data": {
           "cus_no": "客戶號",
           "cus_name": "客戶名稱",
           "cus_phone": "聯繫電話",
-          "applicant_name": "申請人名稱",
-          "water_no": "水號 (格式: XXX-XXX)",
-          "phone": "聯繫電話",
+          "applicant_name": "申請人姓名",
+          "water_num1": "水號大區 (2碼，例: 1B)",
+          "water_num2": "水號用戶編號 (8碼數字)",
+          "water_num3": "水號檢查號 (1碼)",
+          "phone": "聯繫電話 (市話: 02-1234-5678 / 手機: 0912-345678)",
           "email": "電子郵件",
+          "water_addr_city": "縣(市)",
           "taipower_id": "用戶編號"
+        }
+      },
+      "water_district": {
+        "title": "用水地址",
+        "description": "第 3b 步：選擇鄉鎮區並填入詳細地址",
+        "data": {
+          "water_addr_dist": "鄉鎮(區)",
+          "water_addr": "詳細地址 (街道門號)"
         }
       },
       "ocr_config": {
         "title": "OCR 設定",
-        "description": "第 4/6 步：設定度數辨識方式",
+        "description": "第 4 步：設定度數辨識方式",
         "data": {
           "ocr_source": "辨識來源",
           "camera_entity": "攝影機實體 (Google AI 模式)",
@@ -41,7 +52,7 @@
       },
       "advanced": {
         "title": "進階選項",
-        "description": "第 5/6 步：設定通知和排程 (選填)",
+        "description": "第 5 步：設定通知和排程 (選填)",
         "data": {
           "text_entity": "度數儲存實體 (input_text)",
           "schedule_time": "每日排程時間",
@@ -54,8 +65,13 @@
     "error": {
       "camera_required": "Google AI 模式需要選擇攝影機實體",
       "degree_entity_required": "外部實體模式需要選擇度數實體",
-      "invalid_water_no_format": "水號格式應為 XXX-XXX (例: 123-456)",
-      "invalid_email": "電郵格式不正確"
+      "invalid_water_num1": "大區格式應為 2 碼英數字 (例: 1B)",
+      "invalid_water_num2": "用戶編號應為 8 碼數字",
+      "invalid_water_num3": "檢查號應為 1 碼",
+      "invalid_water_no_format": "水號格式錯誤",
+      "invalid_email": "電郵格式不正確",
+      "district_required": "請選擇鄉鎮(區)",
+      "address_required": "請填入詳細地址"
     },
     "abort": {
       "already_configured": "此帳戶已配置"
@@ -70,11 +86,37 @@
           "cus_no": "客戶號",
           "cus_name": "客戶名稱",
           "cus_phone": "聯繫電話",
-          "applicant_name": "申請人名稱",
-          "water_no": "水號",
+          "taipower_id": "用戶編號",
+          "ocr_source": "辨識來源",
+          "camera_entity": "攝影機實體 (Google AI 模式)",
+          "degree_entity": "度數實體 (外部實體模式)",
+          "prompt": "AI 提示詞",
+          "text_entity": "度數儲存實體",
+          "schedule_time": "每日排程時間",
+          "notify_script": "通知腳本",
+          "notify_title": "通知標題",
+          "history_days": "歷史保留天數"
+        }
+      },
+      "water_basic": {
+        "title": "台水設定 — 基本資訊",
+        "description": "修改申請人資訊與水號",
+        "data": {
+          "applicant_name": "申請人姓名",
+          "water_num1": "水號大區 (2碼，例: 1B)",
+          "water_num2": "水號用戶編號 (8碼數字)",
+          "water_num3": "水號檢查號 (1碼)",
           "phone": "聯繫電話",
           "email": "電子郵件",
-          "taipower_id": "用戶編號",
+          "water_addr_city": "縣(市)"
+        }
+      },
+      "water_district_opts": {
+        "title": "台水設定 — 地址與辨識",
+        "description": "修改用水地址、OCR 設定與排程",
+        "data": {
+          "water_addr_dist": "鄉鎮(區)",
+          "water_addr": "詳細地址",
           "ocr_source": "辨識來源",
           "camera_entity": "攝影機實體 (Google AI 模式)",
           "degree_entity": "度數實體 (外部實體模式)",
@@ -88,7 +130,14 @@
       }
     },
     "error": {
-      "invalid_email": "電郵格式不正確"
+      "camera_required": "Google AI 模式需要選擇攝影機實體",
+      "degree_entity_required": "外部實體模式需要選擇度數實體",
+      "invalid_water_num1": "大區格式應為 2 碼英數字 (例: 1B)",
+      "invalid_water_num2": "用戶編號應為 8 碼數字",
+      "invalid_water_num3": "檢查號應為 1 碼",
+      "invalid_email": "電郵格式不正確",
+      "district_required": "請選擇鄉鎮(區)",
+      "address_required": "請填入詳細地址"
     }
   }
 }
