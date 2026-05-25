@@ -54,6 +54,20 @@ from .const import (
 )
 
 _TAIWAN_AREA_URL = "https://www.water.gov.tw/ch/ECounter/TaiwanAreaDropDownList"
+_TAIWAN_FORM_URL = "https://www.water.gov.tw/ch/ECounter/Apply?NodeId=752&type=17&UseCertificate=0"
+_FETCH_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "zh-TW,zh;q=0.9,en;q=0.8",
+    "Referer": _TAIWAN_FORM_URL,
+    "X-Requested-With": "XMLHttpRequest",
+}
+
+import logging
+_LOGGER = logging.getLogger(__name__)
 
 
 async def _fetch_districts(city_code: str) -> list[dict]:
@@ -61,14 +75,18 @@ async def _fetch_districts(city_code: str) -> list[dict]:
     if not city_code:
         return []
     try:
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(headers=_FETCH_HEADERS) as session:
             async with session.post(
                 _TAIWAN_AREA_URL,
                 data={"cityCode": city_code},
                 timeout=aiohttp.ClientTimeout(total=10),
+                ssl=False,
             ) as resp:
-                return await resp.json(content_type=None)
-    except Exception:
+                data = await resp.json(content_type=None)
+                _LOGGER.debug("[台水] 鄉鎮區 API 回應: %s", data)
+                return data if isinstance(data, list) else []
+    except Exception as exc:
+        _LOGGER.warning("[台水] 無法取得鄉鎮區清單 (cityCode=%s): %s", city_code, exc)
         return []
 
 
@@ -379,7 +397,7 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ): selector.TimeSelector(),
                 vol.Optional(
                     CONF_NOTIFY_SCRIPT,
-                    default=config.get(CONF_NOTIFY_SCRIPT, "")
+                    **({} if not config.get(CONF_NOTIFY_SCRIPT) else {"default": config[CONF_NOTIFY_SCRIPT]})
                 ): selector.EntitySelector({"domain": "script"}),
                 vol.Optional(
                     CONF_NOTIFY_TITLE,
@@ -603,7 +621,7 @@ class SlgasOptionsFlowHandler(config_entries.OptionsFlow):
             vol.Required(CONF_SCHEDULE_TIME,
                          default=config.get(CONF_SCHEDULE_TIME, "08:00:00")): selector.TimeSelector(),
             vol.Optional(CONF_NOTIFY_SCRIPT,
-                         default=config.get(CONF_NOTIFY_SCRIPT, "")): selector.EntitySelector(
+                         **({} if not config.get(CONF_NOTIFY_SCRIPT) else {"default": config[CONF_NOTIFY_SCRIPT]})): selector.EntitySelector(
                 {"domain": "script"}),
             vol.Optional(CONF_NOTIFY_TITLE,
                          default=config.get(CONF_NOTIFY_TITLE, default_title)): str,
