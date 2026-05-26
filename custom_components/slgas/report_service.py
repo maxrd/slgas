@@ -165,7 +165,15 @@ class SlgasReportService:
         if not camera_id:
             raise Exception("Google AI 模式需要設定攝影機實體")
 
-        # 1. 拍照
+        # 1. 拍照前先刪除舊照片
+        import os as _os
+        if _os.path.exists(self.image_path):
+            try:
+                _os.remove(self.image_path)
+                _LOGGER.info(f"[{cus_no}] 已刪除舊照片: {self.image_path}")
+            except Exception as del_err:
+                _LOGGER.warning(f"[{cus_no}] 刪除舊照片失敗: {del_err}")
+
         self._update_status("正在拍攝照片...")
         _LOGGER.info(f"[{cus_no}] 正在拍攝 {camera_id} ...")
         try:
