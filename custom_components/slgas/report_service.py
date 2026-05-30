@@ -102,6 +102,56 @@ class SlgasReportService:
         """Return merged config (options + data)."""
         return {**self.entry.data, **self.entry.options}
 
+    async def submit_current_degree(self):
+        """確認並上報：若今天已有照片且有度數則直接上報，否則先拍照+OCR再上報。"""
+        import os as _os
+        cus_no = self.config.get(CONF_CUS_NO, self.entry.entry_id[:6])
+        try:
+            has_today_photo = (
+                _os.path.exists(self.image_path) and
+                datetime.fromtimestamp(_os.path.getmtime(self.image_path)).date() == datetime.now().date()
+            )
+            has_degree = (
+                self.meter_sensor is not None and
+                self.meter_sensor._attr_native_value is not None
+            )
+
+            if has_today_photo and has_degree:
+                degree = str(self.meter_sensor._attr_native_value)
+                _LOGGER.info(f"[{cus_no}] 今天已有照片和度數 ({degree})，直接上報")
+            else:
+                _LOGGER.info(f"[{cus_no}] 尚無今日照片或度數，先執行拍照+OCR")
+                ocr_source = self.config.get(CONF_OCR_SOURCE, OCR_SOURCE_GOOGLE_AI)
+                degree = (
+                    await self._read_external_degree()
+                    if ocr_source == OCR_SOURCE_EXTERNAL
+                    else await self._google_ai_ocr()
+                )
+                if not degree or not degree.isdigit():
+                    raise Exception(f"取得度數失敗 (結果: {degree})")
+                if self.meter_sensor is not None:
+                    self.meter_sensor.update_meter(int(degree))
+                text_id = self.config.get(CONF_TEXT_ENTITY)
+                if text_id:
+                    await self.hass.services.async_call(
+                        "input_text", "set_value",
+                        {"entity_id": text_id, "value": degree},
+                        blocking=True
+                    )
+
+            self._update_status(f"正在上報網站 (度數: {degree})...")
+            success = await self._submit_to_slgas(degree)
+            if success:
+                self._update_status(f"上報成功: {degree}")
+            else:
+                self._update_status(f"回報失敗 (度數: {degree})")
+            self._add_to_history(degree, self.last_status)
+            await self._send_notification(degree)
+        except Exception as e:
+            _LOGGER.error(f"[{cus_no}] 手動上報出錯: {e}")
+            self._update_status(f"錯誤: {str(e)}")
+            self._add_to_history("N/A", self.last_status)
+
     async def execute_full_workflow(self, submit: bool = True):
         """Execute the entire workflow based on OCR source setting."""
         cus_no = self.config.get(CONF_CUS_NO, self.entry.entry_id[:6])
@@ -165,14 +215,16 @@ class SlgasReportService:
         if not camera_id:
             raise Exception("Google AI 模式需要設定攝影機實體")
 
-        # 1. 拍照前先刪除舊照片
+        # 1. 拍照前若照片不是今天的則刪除
         import os as _os
         if _os.path.exists(self.image_path):
-            try:
-                _os.remove(self.image_path)
-                _LOGGER.info(f"[{cus_no}] 已刪除舊照片: {self.image_path}")
-            except Exception as del_err:
-                _LOGGER.warning(f"[{cus_no}] 刪除舊照片失敗: {del_err}")
+            mod_date = datetime.fromtimestamp(_os.path.getmtime(self.image_path)).date()
+            if mod_date != datetime.now().date():
+                try:
+                    _os.remove(self.image_path)
+                    _LOGGER.info(f"[{cus_no}] 已刪除舊照片 ({mod_date}): {self.image_path}")
+                except Exception as del_err:
+                    _LOGGER.warning(f"[{cus_no}] 刪除舊照片失敗: {del_err}")
 
         self._update_status("正在拍攝照片...")
         _LOGGER.info(f"[{cus_no}] 正在拍攝 {camera_id} ...")

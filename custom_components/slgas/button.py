@@ -42,7 +42,7 @@ class SlgasManualReportButton(ButtonEntity):
 
     async def async_press(self) -> None:
         """處理按鈕按下事件"""
-        await self._report_service.execute_full_workflow(submit=True)
+        await self._report_service.submit_current_degree()
 
 
 class SlgasOcrOnlyButton(ButtonEntity):
