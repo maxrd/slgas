@@ -166,17 +166,25 @@ class SlgasReportService:
             self._add_to_history("N/A", self.last_status)
 
     def _check_degree_anomaly(self, new_degree: int) -> str | None:
-        """若度數與上次相差超過閾值且上次不為 0，回傳警告訊息；否則回傳 None。"""
+        """若度數與上次相差超過閾值，回傳警告訊息；否則回傳 None（允許寫入）。"""
         if self.meter_sensor is None:
             return None
         last = self.meter_sensor._attr_native_value
-        if last is None or int(last) == 0:
+        if last is None:
+            # 首次執行或重啟後無歷史值，直接寫入
+            return None
+        try:
+            last_int = int(last)
+        except (ValueError, TypeError):
+            return None
+        if last_int == 0:
+            # 上次為 0，跳過異常檢查
             return None
         threshold = int(self.config.get(CONF_DEGREE_DIFF_THRESHOLD, DEFAULT_DEGREE_DIFF_THRESHOLD))
-        diff = abs(new_degree - int(last))
+        diff = abs(new_degree - last_int)
         if diff > threshold:
             return (
-                f"OCR 度數異常 (上次: {last}，本次: {new_degree}，差距: {diff}，閾值: {threshold})，"
+                f"OCR 度數異常 (上次: {last_int}，本次: {new_degree}，差距: {diff}，閾值: {threshold})，"
                 "可能因光線不足誤判，跳過寫入"
             )
         return None
