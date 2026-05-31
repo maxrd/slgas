@@ -134,6 +134,12 @@ class SlgasReportService:
                 )
                 if not degree or not degree.isdigit():
                     raise Exception(f"取得度數失敗 (結果: {degree})")
+                anomaly_msg = self._check_degree_anomaly(int(degree))
+                if anomaly_msg:
+                    _LOGGER.warning(f"[{cus_no}] {anomaly_msg}")
+                    self._update_status(f"⚠ {anomaly_msg}")
+                    self._add_to_history(degree, self.last_status)
+                    return
                 if self.meter_sensor is not None:
                     self.meter_sensor.update_meter(int(degree))
                 text_id = self.config.get(CONF_TEXT_ENTITY)
@@ -157,6 +163,18 @@ class SlgasReportService:
             self._update_status(f"錯誤: {str(e)}")
             self._add_to_history("N/A", self.last_status)
 
+    def _check_degree_anomaly(self, new_degree: int) -> str | None:
+        """若度數與上次相差超過 10 且上次不為 0，回傳警告訊息；否則回傳 None。"""
+        if self.meter_sensor is None:
+            return None
+        last = self.meter_sensor._attr_native_value
+        if last is None or int(last) == 0:
+            return None
+        diff = abs(new_degree - int(last))
+        if diff > 10:
+            return f"OCR 度數異常 (上次: {last}，本次: {new_degree}，差距: {diff})，可能因光線不足誤判，跳過寫入"
+        return None
+
     async def execute_full_workflow(self, submit: bool = True):
         """Execute the entire workflow based on OCR source setting."""
         cus_no = self.config.get(CONF_CUS_NO, self.entry.entry_id[:6])
@@ -174,6 +192,14 @@ class SlgasReportService:
             # 驗證度數是否為有效數字
             if not ocr_degree or not ocr_degree.isdigit():
                 raise Exception(f"取得度數失敗 (結果: {ocr_degree})")
+
+            # 異常偵測：與上次度數差距超過 10 則跳過寫入
+            anomaly_msg = self._check_degree_anomaly(int(ocr_degree))
+            if anomaly_msg:
+                _LOGGER.warning(f"[{cus_no}] {anomaly_msg}")
+                self._update_status(f"⚠ {anomaly_msg}")
+                self._add_to_history(ocr_degree, self.last_status)
+                return
 
             # 優先更新原生能源感測器
             if self.meter_sensor is not None:
