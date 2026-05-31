@@ -50,8 +50,12 @@ CONF_TAIPOWER_ID = "taipower_id"
 OCR_SOURCE_GOOGLE_AI = "google_ai"
 OCR_SOURCE_EXTERNAL = "external"
 
+# Configuration keys - Anomaly detection
+CONF_DEGREE_DIFF_THRESHOLD = "degree_diff_threshold"
+
 # Defaults
 DEFAULT_HISTORY_DAYS = 90
+DEFAULT_DEGREE_DIFF_THRESHOLD = 10
 DEFAULT_NOTIFY_TITLE_GAS = "🔥 瓦斯度數回報"
 DEFAULT_NOTIFY_TITLE_WATER = "💧 水錶度數回報"
 DEFAULT_NOTIFY_TITLE_ELECTRICITY = "⚡ 電力度數回報"

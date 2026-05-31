@@ -34,6 +34,8 @@ from .const import (
     METER_TYPE_WATER,
     METER_TYPE_ELECTRICITY,
     CONF_TAIPOWER_ID,
+    CONF_DEGREE_DIFF_THRESHOLD,
+    DEFAULT_DEGREE_DIFF_THRESHOLD,
     COMPANY_SLGAS,
 )
 from .reporters.factory import ReporterFactory
@@ -164,15 +166,19 @@ class SlgasReportService:
             self._add_to_history("N/A", self.last_status)
 
     def _check_degree_anomaly(self, new_degree: int) -> str | None:
-        """若度數與上次相差超過 10 且上次不為 0，回傳警告訊息；否則回傳 None。"""
+        """若度數與上次相差超過閾值且上次不為 0，回傳警告訊息；否則回傳 None。"""
         if self.meter_sensor is None:
             return None
         last = self.meter_sensor._attr_native_value
         if last is None or int(last) == 0:
             return None
+        threshold = int(self.config.get(CONF_DEGREE_DIFF_THRESHOLD, DEFAULT_DEGREE_DIFF_THRESHOLD))
         diff = abs(new_degree - int(last))
-        if diff > 10:
-            return f"OCR 度數異常 (上次: {last}，本次: {new_degree}，差距: {diff})，可能因光線不足誤判，跳過寫入"
+        if diff > threshold:
+            return (
+                f"OCR 度數異常 (上次: {last}，本次: {new_degree}，差距: {diff}，閾值: {threshold})，"
+                "可能因光線不足誤判，跳過寫入"
+            )
         return None
 
     async def execute_full_workflow(self, submit: bool = True):

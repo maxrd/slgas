@@ -44,6 +44,8 @@ from .const import (
     OCR_SOURCE_GOOGLE_AI,
     OCR_SOURCE_EXTERNAL,
     DEFAULT_HISTORY_DAYS,
+    DEFAULT_DEGREE_DIFF_THRESHOLD,
+    CONF_DEGREE_DIFF_THRESHOLD,
     DEFAULT_NOTIFY_TITLE_GAS,
     DEFAULT_NOTIFY_TITLE_WATER,
     DEFAULT_NOTIFY_TITLE_ELECTRICITY,
@@ -412,6 +414,15 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     "step": 1,
                     "mode": "box"
                 }),
+                vol.Optional(
+                    CONF_DEGREE_DIFF_THRESHOLD,
+                    default=config.get(CONF_DEGREE_DIFF_THRESHOLD, DEFAULT_DEGREE_DIFF_THRESHOLD)
+                ): selector.NumberSelector({
+                    "min": 1,
+                    "max": 9999,
+                    "step": 1,
+                    "mode": "box"
+                }),
             }),
             errors=errors,
         )
@@ -628,4 +639,7 @@ class SlgasOptionsFlowHandler(config_entries.OptionsFlow):
             vol.Optional(CONF_HISTORY_DAYS,
                          default=config.get(CONF_HISTORY_DAYS, DEFAULT_HISTORY_DAYS)): selector.NumberSelector(
                 {"min": 1, "max": 365, "step": 1, "mode": "box"}),
+            vol.Optional(CONF_DEGREE_DIFF_THRESHOLD,
+                         default=config.get(CONF_DEGREE_DIFF_THRESHOLD, DEFAULT_DEGREE_DIFF_THRESHOLD)): selector.NumberSelector(
+                {"min": 1, "max": 9999, "step": 1, "mode": "box"}),
         }
