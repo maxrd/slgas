@@ -32,6 +32,8 @@ from .const import (
     DEFAULT_IMAGE_DIR,
     METER_TYPE_GAS,
     METER_TYPE_WATER,
+    METER_TYPE_ELECTRICITY,
+    CONF_TAIPOWER_ID,
     COMPANY_SLGAS,
 )
 from .reporters.factory import ReporterFactory
@@ -91,6 +93,9 @@ class SlgasReportService:
             else:
                 water_id = self.config.get(CONF_WATER_NO, self.entry.entry_id[:8]).replace("-", "")
             filename = f"slgas_water_{water_id}.png"
+        elif self.meter_type == METER_TYPE_ELECTRICITY:
+            taipower_id = self.config.get(CONF_TAIPOWER_ID, self.entry.entry_id[:8])
+            filename = f"slgas_taipower_{taipower_id}.png"
         else:
             cus_no = self.config.get(CONF_CUS_NO, self.entry.entry_id[:8])
             filename = f"slgas_{cus_no}.png"
@@ -215,8 +220,17 @@ class SlgasReportService:
         if not camera_id:
             raise Exception("Google AI 模式需要設定攝影機實體")
 
-        # 1. 拍照前若照片不是今天的則刪除
         import os as _os
+
+        # 1. 確認目標目錄存在
+        img_dir = _os.path.dirname(self.image_path)
+        if not _os.path.isdir(img_dir):
+            raise Exception(
+                f"截圖目錄不存在: {img_dir}，"
+                "請確認 HA 的 /media 已掛載（HAOS 預設存在；Container 需手動掛載）"
+            )
+
+        # 2. 拍照前若照片不是今天的則刪除
         if _os.path.exists(self.image_path):
             mod_date = datetime.fromtimestamp(_os.path.getmtime(self.image_path)).date()
             if mod_date != datetime.now().date():
@@ -226,8 +240,9 @@ class SlgasReportService:
                 except Exception as del_err:
                     _LOGGER.warning(f"[{cus_no}] 刪除舊照片失敗: {del_err}")
 
+        # 3. 拍照
         self._update_status("正在拍攝照片...")
-        _LOGGER.info(f"[{cus_no}] 正在拍攝 {camera_id} ...")
+        _LOGGER.info(f"[{cus_no}] 正在拍攝 {camera_id}，存至 {self.image_path} ...")
         try:
             await self.hass.services.async_call(
                 "camera",
@@ -237,12 +252,20 @@ class SlgasReportService:
             )
         except Exception as snap_err:
             raise Exception(f"camera.snapshot 失敗 ({camera_id}): {snap_err}") from snap_err
-        _LOGGER.info(f"[{cus_no}] 已拍攝照片並存於 {self.image_path}")
 
         # 等待檔案完全寫入磁碟
         await asyncio.sleep(2)
 
-        # 2. AI OCR
+        # 4. 確認檔案確實存在（camera.snapshot 路徑不合法時靜默失敗）
+        if not _os.path.exists(self.image_path):
+            raise Exception(
+                f"截圖未存檔：{self.image_path} 不存在。"
+                "camera.snapshot 可能因路徑權限問題靜默失敗，"
+                "請在 configuration.yaml 加入: homeassistant.allowlist_external_dirs: /media"
+            )
+        _LOGGER.info(f"[{cus_no}] 截圖已確認存檔: {self.image_path}")
+
+        # 5. AI OCR
         self._update_status("正在進行 AI OCR 辨識...")
         return await self._perform_ocr()
 
