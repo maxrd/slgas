@@ -79,6 +79,7 @@ class UniversalMeterSensor(SensorEntity, RestoreEntity):
 
         self._attr_unique_id = f"{entry.entry_id}_meter"
         self._attr_state_class = SensorStateClass.TOTAL_INCREASING
+        #self._attr_state_class = SensorStateClass.TOTAL
         self._attr_native_value = None
 
     async def async_added_to_hass(self):
