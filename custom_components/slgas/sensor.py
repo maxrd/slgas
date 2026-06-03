@@ -14,7 +14,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
-from .const import DOMAIN, CONF_METER_TYPE, METER_TYPE_WATER, METER_TYPE_GAS, METER_TYPE_ELECTRICITY
+from .const import (
+    DOMAIN, CONF_METER_TYPE, METER_TYPE_WATER, METER_TYPE_GAS, METER_TYPE_ELECTRICITY,
+    CONF_WATER_NUM1, CONF_WATER_NUM2, CONF_WATER_NUM3,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -48,8 +51,11 @@ class UniversalMeterSensor(SensorEntity, RestoreEntity):
 
         # 根據 meter_type 設定名稱和圖示
         if meter_type == METER_TYPE_WATER:
-            water_no = entry.data.get("water_no", "")
-            self._attr_name = f"水錶度數 ({water_no})"
+            n1 = entry.data.get(CONF_WATER_NUM1, entry.data.get("water_no", ""))
+            n2 = entry.data.get(CONF_WATER_NUM2, "")
+            n3 = entry.data.get(CONF_WATER_NUM3, "")
+            water_id = f"{n1}-{n2}-{n3}" if n2 else n1
+            self._attr_name = f"水錶度數 ({water_id})"
             self._attr_icon = "mdi:water"
             self._attr_device_class = SensorDeviceClass.WATER
             self._attr_native_unit_of_measurement = UnitOfVolume.LITERS
@@ -119,8 +125,11 @@ class SlgasReportSensor(SensorEntity):
         meter_type = entry.data.get("meter_type", "gas")
 
         if meter_type == METER_TYPE_WATER:
-            water_no = entry.data.get("water_no", "")
-            status_name = f"水錶回報狀態 ({water_no})"
+            n1 = entry.data.get(CONF_WATER_NUM1, entry.data.get("water_no", ""))
+            n2 = entry.data.get(CONF_WATER_NUM2, "")
+            n3 = entry.data.get(CONF_WATER_NUM3, "")
+            water_id = f"{n1}-{n2}-{n3}" if n2 else n1
+            status_name = f"水錶回報狀態 ({water_id})"
             icon = "mdi:water"
         elif meter_type == METER_TYPE_ELECTRICITY:
             taipower_id = entry.data.get("taipower_id", "")

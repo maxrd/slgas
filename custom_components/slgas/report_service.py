@@ -83,6 +83,23 @@ class SlgasReportService:
             self.status_sensor.async_write_ha_state()
 
     @property
+    def _entry_label(self) -> str:
+        """Return a readable identifier for this entry used in log messages."""
+        if self.meter_type == METER_TYPE_WATER:
+            n1 = self.config.get(CONF_WATER_NUM1, "")
+            n2 = self.config.get(CONF_WATER_NUM2, "")
+            n3 = self.config.get(CONF_WATER_NUM3, "")
+            return f"{n1}-{n2}-{n3}" if n1 else self.entry.entry_id[:8]
+        if self.meter_type == METER_TYPE_ELECTRICITY:
+            return self.config.get(CONF_TAIPOWER_ID, self.entry.entry_id[:8])
+        return self.config.get(CONF_CUS_NO, self.entry.entry_id[:8])
+
+    @property
+    def _meter_label(self) -> str:
+        """Return Chinese name for this meter type."""
+        return {METER_TYPE_WATER: "水錶", METER_TYPE_ELECTRICITY: "電力"}.get(self.meter_type, "瓦斯")
+
+    @property
     def image_path(self) -> str:
         """Return per-entry snapshot path based on meter_type and company."""
         if self.meter_type == METER_TYPE_WATER:
@@ -112,7 +129,7 @@ class SlgasReportService:
     async def submit_current_degree(self):
         """確認並上報：若今天已有照片且有度數則直接上報，否則先拍照+OCR再上報。"""
         import os as _os
-        cus_no = self.config.get(CONF_CUS_NO, self.entry.entry_id[:6])
+        cus_no = self._entry_label
         try:
             has_today_photo = (
                 _os.path.exists(self.image_path) and
@@ -191,7 +208,7 @@ class SlgasReportService:
 
     async def execute_full_workflow(self, submit: bool = True):
         """Execute the entire workflow based on OCR source setting."""
-        cus_no = self.config.get(CONF_CUS_NO, self.entry.entry_id[:6])
+        cus_no = self._entry_label
         try:
             ocr_source = self.config.get(CONF_OCR_SOURCE, OCR_SOURCE_GOOGLE_AI)
             _LOGGER.info(f"[{cus_no}] 開始執行流程 (submit={submit}, ocr_source={ocr_source})")
@@ -218,7 +235,7 @@ class SlgasReportService:
             # 優先更新原生能源感測器
             if self.meter_sensor is not None:
                 self.meter_sensor.update_meter(int(ocr_degree))
-                _LOGGER.info(f"[{cus_no}] 已更新原生瓦斯度數感測器為 {ocr_degree}")
+                _LOGGER.info(f"[{cus_no}] 已更新{self._meter_label}度數感測器為 {ocr_degree}")
 
             # 選填：同步寫入 text_entity (若有設定)
             text_id = self.config.get(CONF_TEXT_ENTITY)
@@ -249,13 +266,13 @@ class SlgasReportService:
             await self._send_notification(ocr_degree)
 
         except Exception as e:
-            _LOGGER.error(f"[{cus_no}] 瓦斯回報流程出錯: {e}")
+            _LOGGER.error(f"[{cus_no}] {self._meter_label}回報流程出錯: {e}")
             self._update_status(f"錯誤: {str(e)}")
             self._add_to_history("N/A", self.last_status)
 
     async def _google_ai_ocr(self):
         """Google AI mode: snapshot + OCR."""
-        cus_no = self.config.get(CONF_CUS_NO, self.entry.entry_id[:6])
+        cus_no = self._entry_label
         camera_id = self.config.get(CONF_CAMERA_ENTITY)
         if not camera_id:
             raise Exception("Google AI 模式需要設定攝影機實體")
