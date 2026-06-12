@@ -325,14 +325,32 @@ class SlgasReportService:
         # 等待檔案完全寫入磁碟
         await asyncio.sleep(2)
 
-        # 4. 確認檔案確實存在（camera.snapshot 路徑不合法時靜默失敗）
+        # 4. 確認檔案存在且大小 > 0
         if not _os.path.exists(self.image_path):
             raise Exception(
                 f"截圖未存檔：{self.image_path} 不存在。"
                 "camera.snapshot 可能因路徑權限問題靜默失敗，"
                 "請在 configuration.yaml 加入: homeassistant.allowlist_external_dirs: /media"
             )
-        _LOGGER.info(f"[{cus_no}] 截圖已確認存檔: {self.image_path}")
+        file_size = _os.path.getsize(self.image_path)
+        if file_size == 0:
+            _os.remove(self.image_path)
+            raise Exception(
+                f"截圖為空檔 (0 KB)：{self.image_path}，"
+                "攝影機可能尚未就緒或當下無畫面，請確認攝影機串流正常"
+            )
+        # 驗證檔案是否為有效圖片（損壞的檔案會讓後續 OCR 靜默失敗）
+        try:
+            from PIL import Image as _PILImage
+            with _PILImage.open(self.image_path) as _img:
+                _img.load()
+        except Exception as img_err:
+            _os.remove(self.image_path)
+            raise Exception(
+                f"截圖檔案損壞無法讀取 ({img_err})，"
+                "攝影機可能輸出了無效資料，請確認攝影機串流正常"
+            )
+        _LOGGER.info(f"[{cus_no}] 截圖已確認存檔: {self.image_path} ({file_size} bytes)")
 
         # 5. 影像預處理（反光去除 + 對比強化）
         self._update_status("正在進行影像預處理...")

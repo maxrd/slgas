@@ -11,6 +11,6 @@
   "requirements": [
     "beautifulsoup4>=4.11.1"
   ],
-  "version": "2026.6.4",
+  "version": "2026.6.5",
   "homeassistant": "2024.1.0"
 }
