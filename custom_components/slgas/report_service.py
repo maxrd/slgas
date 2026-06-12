@@ -203,8 +203,13 @@ class SlgasReportService:
         if last_int == 0:
             # 上次為 0，跳過異常檢查
             return None
+        if new_degree < last_int:
+            return (
+                f"OCR 度數異常 (上次: {last_int}，本次: {new_degree})，"
+                "新度數小於目前度數，不允許回退，跳過寫入"
+            )
         threshold = int(self.config.get(CONF_DEGREE_DIFF_THRESHOLD, DEFAULT_DEGREE_DIFF_THRESHOLD))
-        diff = abs(new_degree - last_int)
+        diff = new_degree - last_int
         if diff > threshold:
             return (
                 f"OCR 度數異常 (上次: {last_int}，本次: {new_degree}，差距: {diff}，閾值: {threshold})，"
