@@ -10,13 +10,14 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfVolume, UnitOfEnergy
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import (
     DOMAIN, CONF_METER_TYPE, METER_TYPE_WATER, METER_TYPE_GAS, METER_TYPE_ELECTRICITY,
-    CONF_WATER_NUM1, CONF_WATER_NUM2, CONF_WATER_NUM3,
+    CONF_WATER_NUM1, CONF_WATER_NUM2, CONF_WATER_NUM3, CONF_TEXT_ENTITY,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -83,7 +84,7 @@ class UniversalMeterSensor(SensorEntity, RestoreEntity):
         self._attr_native_value = None
 
     async def async_added_to_hass(self):
-        """啟動時恢復上次狀態"""
+        """啟動時恢復上次狀態，並監聽 input_text 變動"""
         await super().async_added_to_hass()
         last_state = await self.async_get_last_state()
         if last_state and last_state.state not in ("unknown", "unavailable", None):
@@ -102,6 +103,27 @@ class UniversalMeterSensor(SensorEntity, RestoreEntity):
                 _LOGGER.warning(
                     f"無法恢復度數感測器狀態: {last_state.state}"
                 )
+
+        # 監聽 input_text，使用者手動修改時同步到能源感測器
+        text_id = self._report_service.config.get(CONF_TEXT_ENTITY)
+        if text_id:
+            self.async_on_remove(
+                async_track_state_change_event(
+                    self.hass, [text_id], self._handle_text_entity_change
+                )
+            )
+
+    @callback
+    def _handle_text_entity_change(self, event):
+        """input_text 被手動修改時，同步更新能源感測器數值。"""
+        new_state = event.data.get("new_state")
+        if new_state and new_state.state not in ("unknown", "unavailable", ""):
+            try:
+                self._attr_native_value = int(new_state.state)
+                self.async_write_ha_state()
+                _LOGGER.info(f"已從 input_text 同步度數: {self._attr_native_value}")
+            except (ValueError, TypeError):
+                pass
 
     def update_meter(self, degree: int):
         """由 report_service 呼叫更新度數"""

@@ -184,11 +184,17 @@ class SlgasReportService:
 
     def _check_degree_anomaly(self, new_degree: int) -> str | None:
         """若度數與上次相差超過閾值，回傳警告訊息；否則回傳 None（允許寫入）。"""
-        if self.meter_sensor is None:
-            return None
-        last = self.meter_sensor._attr_native_value
+        # 優先從 input_text 讀取上次度數，使用者可手動修改基準值
+        last = None
+        text_id = self.config.get(CONF_TEXT_ENTITY)
+        if text_id:
+            state = self.hass.states.get(text_id)
+            if state and state.state not in ("unknown", "unavailable", ""):
+                last = state.state
+        # fallback: 從 meter_sensor 讀取
+        if last is None and self.meter_sensor is not None:
+            last = self.meter_sensor._attr_native_value
         if last is None:
-            # 首次執行或重啟後無歷史值，直接寫入
             return None
         try:
             last_int = int(last)
