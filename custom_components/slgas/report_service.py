@@ -39,6 +39,7 @@ from .const import (
     COMPANY_SLGAS,
 )
 from .reporters.factory import ReporterFactory
+from .image_processor import preprocess_meter_image
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -333,7 +334,13 @@ class SlgasReportService:
             )
         _LOGGER.info(f"[{cus_no}] 截圖已確認存檔: {self.image_path}")
 
-        # 5. AI OCR
+        # 5. 影像預處理（反光去除 + 對比強化）
+        self._update_status("正在進行影像預處理...")
+        await self.hass.async_add_executor_job(
+            preprocess_meter_image, self.image_path
+        )
+
+        # 6. AI OCR
         self._update_status("正在進行 AI OCR 辨識...")
         return await self._perform_ocr()
 

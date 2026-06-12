@@ -9,8 +9,9 @@
   "documentation": "https://github.com/maxrd/slgas",
   "iot_class": "cloud_polling",
   "requirements": [
-    "beautifulsoup4>=4.11.1"
+    "beautifulsoup4>=4.11.1",
+    "opencv-python-headless>=4.8.0"
   ],
-  "version": "2026.6.2",
+  "version": "2026.6.3",
   "homeassistant": "2024.1.0"
 }
