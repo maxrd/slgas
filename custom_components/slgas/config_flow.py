@@ -15,6 +15,12 @@ from .const import (
     CONF_CUS_NO,
     CONF_CUS_NAME,
     CONF_CUS_PHONE,
+    CONF_SHINHAI_NO1,
+    CONF_SHINHAI_NO2,
+    CONF_SHINHAI_NO3,
+    CONF_SHINHAI_TEL_AREA,
+    CONF_SHINHAI_TEL,
+    CONF_SHINHAI_MOBILE,
     CONF_WATER_NO,
     CONF_WATER_NUM1,
     CONF_WATER_NUM2,
@@ -39,6 +45,7 @@ from .const import (
     METER_TYPE_WATER,
     METER_TYPE_ELECTRICITY,
     COMPANY_SLGAS,
+    COMPANY_SHINHAI,
     COMPANY_WATER_TAIPEI,
     COMPANY_TAIPOWER,
     OCR_SOURCE_GOOGLE_AI,
@@ -157,6 +164,7 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         else:  # GAS
             companies = {
                 COMPANY_SLGAS: "欣隆天然瓦斯",
+                COMPANY_SHINHAI: "新海瓦斯",
             }
 
         return self.async_show_form(
@@ -195,6 +203,21 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 if email and not re.match(r"^[^@]+@[^@]+\.[^@]+$", email):
                     errors[CONF_EMAIL] = "invalid_email"
 
+            elif self.company == COMPANY_SHINHAI:
+                # 新海用戶號碼格式驗證
+                if not re.match(r"^\d{3}$", user_input.get(CONF_SHINHAI_NO1, "")):
+                    errors[CONF_SHINHAI_NO1] = "invalid_shinhai_no1"
+                if not re.match(r"^\d{5}$", user_input.get(CONF_SHINHAI_NO2, "")):
+                    errors[CONF_SHINHAI_NO2] = "invalid_shinhai_no2"
+                if not re.match(r"^\d{1}$", user_input.get(CONF_SHINHAI_NO3, "")):
+                    errors[CONF_SHINHAI_NO3] = "invalid_shinhai_no3"
+                # 市話或手機擇一
+                has_tel = (user_input.get(CONF_SHINHAI_TEL_AREA, "")
+                           and user_input.get(CONF_SHINHAI_TEL, ""))
+                has_mobile = bool(user_input.get(CONF_SHINHAI_MOBILE, ""))
+                if not has_tel and not has_mobile:
+                    errors[CONF_SHINHAI_MOBILE] = "shinhai_contact_required"
+
             if not errors:
                 self._user_input.update(user_input)
                 if self.company == COMPANY_WATER_TAIPEI:
@@ -225,6 +248,15 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         elif self.company == COMPANY_TAIPOWER:
             schema_dict = {
                 vol.Required(CONF_TAIPOWER_ID): str,
+            }
+        elif self.company == COMPANY_SHINHAI:
+            schema_dict = {
+                vol.Required(CONF_SHINHAI_NO1): str,
+                vol.Required(CONF_SHINHAI_NO2): str,
+                vol.Required(CONF_SHINHAI_NO3): str,
+                vol.Optional(CONF_SHINHAI_TEL_AREA): str,
+                vol.Optional(CONF_SHINHAI_TEL): str,
+                vol.Optional(CONF_SHINHAI_MOBILE): str,
             }
         else:  # SLGAS
             schema_dict = {
@@ -364,9 +396,15 @@ class SlgasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             elif self.meter_type == METER_TYPE_ELECTRICITY:
                 unique_id = full_data.get(CONF_TAIPOWER_ID, "electricity")
                 title = f"⚡ 電力 ({unique_id})"
+            elif self.company == COMPANY_SHINHAI:
+                n1 = full_data.get(CONF_SHINHAI_NO1, "")
+                n2 = full_data.get(CONF_SHINHAI_NO2, "")
+                n3 = full_data.get(CONF_SHINHAI_NO3, "")
+                unique_id = f"shinhai-{n1}-{n2}-{n3}"
+                title = f"⛽ 新海瓦斯 ({n1}-{n2}-{n3})"
             else:
                 unique_id = full_data.get(CONF_CUS_NO, "gas")
-                title = f"⛽ 瓦斯 ({unique_id})"
+                title = f"⛽ 欣隆瓦斯 ({unique_id})"
 
             await self.async_set_unique_id(unique_id)
             self._abort_if_unique_id_configured()
@@ -576,12 +614,31 @@ class SlgasOptionsFlowHandler(config_entries.OptionsFlow):
             if not errors:
                 return self.async_create_entry(title="", data=user_input)
 
+        company = config.get(CONF_COMPANY, COMPANY_SLGAS)
+
         if meter_type == METER_TYPE_ELECTRICITY:
             id_schema = {vol.Required(CONF_TAIPOWER_ID,
                                       default=config.get(CONF_TAIPOWER_ID, "")): str}
             default_title = DEFAULT_NOTIFY_TITLE_ELECTRICITY
             default_prompt = DEFAULT_PROMPT_ELECTRICITY
-        else:
+        elif company == COMPANY_SHINHAI:
+            id_schema = {
+                vol.Required(CONF_SHINHAI_NO1,
+                             default=config.get(CONF_SHINHAI_NO1, "")): str,
+                vol.Required(CONF_SHINHAI_NO2,
+                             default=config.get(CONF_SHINHAI_NO2, "")): str,
+                vol.Required(CONF_SHINHAI_NO3,
+                             default=config.get(CONF_SHINHAI_NO3, "")): str,
+                vol.Optional(CONF_SHINHAI_TEL_AREA,
+                             description={"suggested_value": config.get(CONF_SHINHAI_TEL_AREA, "")}): str,
+                vol.Optional(CONF_SHINHAI_TEL,
+                             description={"suggested_value": config.get(CONF_SHINHAI_TEL, "")}): str,
+                vol.Optional(CONF_SHINHAI_MOBILE,
+                             description={"suggested_value": config.get(CONF_SHINHAI_MOBILE, "")}): str,
+            }
+            default_title = DEFAULT_NOTIFY_TITLE_GAS
+            default_prompt = DEFAULT_PROMPT_GAS
+        else:  # SLGAS
             id_schema = {
                 vol.Required(CONF_CUS_NO, default=config.get(CONF_CUS_NO, "")): str,
                 vol.Required(CONF_CUS_NAME, default=config.get(CONF_CUS_NAME, "")): str,

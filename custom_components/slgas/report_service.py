@@ -23,6 +23,9 @@ from .const import (
     CONF_WATER_NUM1,
     CONF_WATER_NUM2,
     CONF_WATER_NUM3,
+    CONF_SHINHAI_NO1,
+    CONF_SHINHAI_NO2,
+    CONF_SHINHAI_NO3,
     OCR_SOURCE_GOOGLE_AI,
     OCR_SOURCE_EXTERNAL,
     DEFAULT_HISTORY_DAYS,
@@ -37,6 +40,7 @@ from .const import (
     CONF_DEGREE_DIFF_THRESHOLD,
     DEFAULT_DEGREE_DIFF_THRESHOLD,
     COMPANY_SLGAS,
+    COMPANY_SHINHAI,
 )
 from .reporters.factory import ReporterFactory
 from .image_processor import preprocess_meter_image
@@ -93,6 +97,11 @@ class SlgasReportService:
             return f"{n1}-{n2}-{n3}" if n1 else self.entry.entry_id[:8]
         if self.meter_type == METER_TYPE_ELECTRICITY:
             return self.config.get(CONF_TAIPOWER_ID, self.entry.entry_id[:8])
+        if self.company == COMPANY_SHINHAI:
+            n1 = self.config.get(CONF_SHINHAI_NO1, "")
+            n2 = self.config.get(CONF_SHINHAI_NO2, "")
+            n3 = self.config.get(CONF_SHINHAI_NO3, "")
+            return f"{n1}-{n2}-{n3}" if n1 else self.entry.entry_id[:8]
         return self.config.get(CONF_CUS_NO, self.entry.entry_id[:8])
 
     @property
@@ -116,6 +125,11 @@ class SlgasReportService:
         elif self.meter_type == METER_TYPE_ELECTRICITY:
             taipower_id = self.config.get(CONF_TAIPOWER_ID, self.entry.entry_id[:8])
             filename = f"slgas_taipower_{taipower_id}.png"
+        elif self.company == COMPANY_SHINHAI:
+            n1 = self.config.get(CONF_SHINHAI_NO1, "")
+            n2 = self.config.get(CONF_SHINHAI_NO2, "")
+            n3 = self.config.get(CONF_SHINHAI_NO3, "")
+            filename = f"slgas_shinhai_{n1}{n2}{n3}.png"
         else:
             cus_no = self.config.get(CONF_CUS_NO, self.entry.entry_id[:8])
             filename = f"slgas_{cus_no}.png"

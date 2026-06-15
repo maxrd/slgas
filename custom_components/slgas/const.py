@@ -9,6 +9,7 @@ METER_TYPE_ELECTRICITY = "electricity"
 
 # Companies
 COMPANY_SLGAS = "slgas"
+COMPANY_SHINHAI = "shinhai"
 COMPANY_WATER_TAIPEI = "water_taipei"
 COMPANY_TAIPOWER = "taipower"
 
@@ -25,10 +26,18 @@ CONF_PROMPT = "prompt"
 CONF_OCR_SOURCE = "ocr_source"
 CONF_DEGREE_ENTITY = "degree_entity"
 
-# Configuration keys - Gas (SLGAS)
+# Configuration keys - Gas (SLGAS 欣隆)
 CONF_CUS_NO = "cus_no"
 CONF_CUS_NAME = "cus_name"
 CONF_CUS_PHONE = "cus_phone"
+
+# Configuration keys - Gas (新海瓦斯)
+CONF_SHINHAI_NO1      = "shinhai_no1"       # 用戶號碼第1段 (3碼)
+CONF_SHINHAI_NO2      = "shinhai_no2"       # 用戶號碼第2段 (5碼)
+CONF_SHINHAI_NO3      = "shinhai_no3"       # 用戶號碼第3段 (1碼)
+CONF_SHINHAI_TEL_AREA = "shinhai_tel_area"  # 市話區碼 (最多4碼，與 shinhai_tel 配對)
+CONF_SHINHAI_TEL      = "shinhai_tel"       # 市話號碼 (最多8碼)
+CONF_SHINHAI_MOBILE   = "shinhai_mobile"    # 手機 (10碼，與市話擇一)
 
 # Configuration keys - Water (Taiwan Water)
 CONF_WATER_NO = "water_no"          # legacy, kept for backward compat
