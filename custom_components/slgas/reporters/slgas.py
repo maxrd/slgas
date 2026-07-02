@@ -1,6 +1,7 @@
 """SLGAS (欣隆) gas company reporter."""
 import logging
 import re
+from urllib.parse import quote
 import aiohttp
 from bs4 import BeautifulSoup
 
@@ -8,6 +9,19 @@ from .base import BaseReporter
 from ..const import CONF_CUS_NO, CONF_CUS_NAME, CONF_CUS_PHONE
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _encode_form_field(value) -> str:
+    """Percent-encode a form field, preserving raw (e.g. Big5) bytes."""
+    if isinstance(value, bytes):
+        return quote(value)
+    return quote(str(value), safe="")
+
+
+def _build_form_body(fields: dict) -> str:
+    """Build an application/x-www-form-urlencoded body without letting
+    aiohttp reinterpret bytes values as a multipart file upload."""
+    return "&".join(f"{quote(k)}={_encode_form_field(v)}" for k, v in fields.items())
 
 
 class SlgasReporter(BaseReporter):
@@ -51,7 +65,7 @@ class SlgasReporter(BaseReporter):
                     "Send": "送出".encode("big5")
                 }
 
-                async with session.post(self.SUBMIT_URL, data=payload1) as resp1:
+                async with session.post(self.SUBMIT_URL, data=_build_form_body(payload1)) as resp1:
                     if resp1.status != 200:
                         _LOGGER.error(f"[欣隆] Step 1 POST 失敗: {resp1.status}")
                         self.last_status = f"POST 失敗: {resp1.status}"
@@ -72,7 +86,7 @@ class SlgasReporter(BaseReporter):
                         "send": "送出".encode("big5")
                     }
 
-                    async with session.post(self.SUBMIT_URL, data=payload2) as resp2:
+                    async with session.post(self.SUBMIT_URL, data=_build_form_body(payload2)) as resp2:
                         if resp2.status != 200:
                             _LOGGER.error(f"[欣隆] Step 2 POST 失敗: {resp2.status}")
                             self.last_status = f"POST 失敗: {resp2.status}"
